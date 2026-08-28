@@ -1,0 +1,285 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Save, Printer } from 'lucide-react';
+import Modal from '../../common/Modal';
+import CommonProductFields from '../../common/CommonProductFields';
+import { useToast } from '../../common/Toast';
+import api from '../../../services/api';
+
+function money(v) {
+  const num = parseFloat(v || 0);
+  return 'PKR ' + num.toLocaleString('en-PK', { maximumFractionDigits: 2 });
+}
+
+export default function CustomerPurchaseModal({
+  isOpen,
+  onClose,
+  onSuccess
+}) {
+  const { toast } = useToast();
+  const [categories, setCategories] = useState([]);
+  const [customerName, setCustomerName] = useState('');
+  const [contact, setContact] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [referenceId, setReferenceId] = useState('');
+  const [paid, setPaid] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitAction, setSubmitAction] = useState('save_preview');
+
+  const [productData, setProductData] = useState({
+    category: 'Laptop',
+    brand: '',
+    model: '',
+    screenSize: '',
+    processor: '',
+    ram: '',
+    romSsd: '',
+    hardDrive: '',
+    graphicsCard: '',
+    others: '',
+    condition: 'Used',
+    quantity: 1,
+    lowStockAlert: 1,
+    costPrice: '',
+    expectedSalePrice: '',
+    remarks: ''
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      api.get('/categories')
+        .then(res => {
+          if (res.success) setCategories(res.data.productCategories || []);
+        })
+        .catch(console.error);
+
+      setCustomerName('');
+      setContact('');
+      setPaid('');
+      setReferenceId('');
+      setDate(new Date().toISOString().split('T')[0]);
+      setProductData({
+        category: 'Laptop',
+        brand: '',
+        model: '',
+        screenSize: '',
+        processor: '',
+        ram: '',
+        romSsd: '',
+        hardDrive: '',
+        graphicsCard: '',
+        others: '',
+        condition: 'Used',
+        quantity: 1,
+        lowStockAlert: 1,
+        costPrice: '',
+        expectedSalePrice: '',
+        remarks: ''
+      });
+    }
+  }, [isOpen]);
+
+  const handleFieldChange = (field, val) => {
+    setProductData(prev => ({ ...prev, [field]: val }));
+  };
+
+  const qty = parseInt(productData.quantity || 1, 10);
+  const cost = parseFloat(productData.costPrice || 0);
+  const totalCost = qty * cost;
+  const numPaid = paid === '' ? totalCost : parseFloat(paid || 0);
+  const balance = Math.max(0, totalCost - numPaid);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!customerName.trim() || !productData.brand.trim() || !productData.model.trim() || totalCost <= 0) {
+      toast('Please fill all required customer and product fields', 'error');
+      return;
+    }
+
+    const productObj = {
+      category: productData.category || 'Laptop',
+      categoryName: productData.category || 'Laptop',
+      brand: productData.brand.trim(),
+      model: productData.model.trim(),
+      screenSize: productData.screenSize,
+      processor: productData.processor,
+      ram: productData.ram,
+      romSsd: productData.romSsd,
+      hardDrive: productData.hardDrive,
+      graphicsCard: productData.graphicsCard,
+      others: productData.others,
+      specifications: [
+        productData.screenSize && `${productData.screenSize}`,
+        productData.processor && `CPU: ${productData.processor}`,
+        productData.ram && `RAM: ${productData.ram}`,
+        productData.romSsd && `SSD: ${productData.romSsd}`,
+        productData.hardDrive && `HDD: ${productData.hardDrive}`,
+        productData.graphicsCard && `GPU: ${productData.graphicsCard}`,
+        productData.others
+      ].filter(Boolean).join(' • '),
+      condition: productData.condition || 'Used',
+      quantity: qty,
+      lowStockAlert: parseInt(productData.lowStockAlert || 1, 10),
+      costPrice: cost,
+      expectedSalePrice: parseFloat(productData.expectedSalePrice || (cost * 1.15)),
+      remarks: productData.remarks
+    };
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        customerName: customerName.trim(),
+        contact: contact.trim(),
+        date,
+        paymentMethod,
+        referenceId: referenceId.trim(),
+        paid: numPaid,
+        product: productObj,
+        lines: [productObj]
+      };
+
+      const res = await api.post('/pos/customer-purchase', payload);
+      if (res.success) {
+        toast('Customer Purchase invoice created & stock added to inventory!');
+        onClose();
+        if (onSuccess) {
+          const shouldPreview = submitAction === 'save_preview';
+          onSuccess(res.data.invoice, shouldPreview);
+        }
+      }
+    } catch (err) {
+      toast(err.message || 'Error creating customer purchase', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Buyback / Customer Purchase"
+      subtitle="Purchase product from customer into inventory"
+      wide={true}
+      footer={
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', width: '100%', flexWrap: 'wrap' }}>
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="custPurchaseForm"
+            className="btn"
+            style={{ fontWeight: 700, backgroundColor: 'var(--bg)', borderColor: 'var(--border)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            disabled={submitting}
+            onClick={() => setSubmitAction('save')}
+          >
+            <Save size={15} /> Save Purchase
+          </button>
+          <button
+            type="submit"
+            form="custPurchaseForm"
+            className="btn primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            disabled={submitting}
+            onClick={() => setSubmitAction('save_preview')}
+          >
+            <Printer size={15} /> {submitting ? 'Processing...' : `Save & Print (${money(totalCost)})`}
+          </button>
+        </div>
+      }
+    >
+      <form id="custPurchaseForm" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <div className="field span-4">
+            <label>Customer Name *</label>
+            <input
+              className="input"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Seller customer name"
+              required
+            />
+          </div>
+          <div className="field span-4">
+            <label>Contact Number</label>
+            <input
+              className="input"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="03001234567"
+            />
+          </div>
+          <div className="field span-4">
+            <label>Purchase Date</label>
+            <input
+              className="input"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <CommonProductFields
+            values={productData}
+            onChange={handleFieldChange}
+            categories={categories}
+          />
+
+          <div className="field span-4">
+            <label>Payment Method to Customer *</label>
+            <select
+              className="select"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+            >
+              <option value="Cash">Cash (from Register)</option>
+              <option value="Online">Online Bank Transfer</option>
+            </select>
+          </div>
+
+          <div className="field span-4">
+            <label>Amount Paid to Customer</label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="0.01"
+              value={paid}
+              onChange={(e) => setPaid(e.target.value)}
+              placeholder={totalCost > 0 ? `Full: PKR ${totalCost.toLocaleString('en-PK')}` : '0.00'}
+            />
+          </div>
+
+          <div className="field span-4">
+            <label>Payment Reference / Slip</label>
+            <input
+              className="input"
+              value={referenceId}
+              onChange={(e) => setReferenceId(e.target.value)}
+              placeholder="Optional transaction reference"
+            />
+          </div>
+
+          <div className="span-12 summary-box" style={{ marginTop: 8 }}>
+            <div className="summary-row">
+              <span>Total Buyback Price</span>
+              <strong>{money(totalCost)}</strong>
+            </div>
+            <div className="summary-row">
+              <span>Paid Now (Cash / Online Outflow)</span>
+              <strong>{money(numPaid)}</strong>
+            </div>
+            <div className="summary-row" style={{ color: balance > 0 ? 'var(--danger)' : 'var(--success)' }}>
+              <span>Balance (Customer Payable)</span>
+              <strong>{money(balance)}</strong>
+            </div>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
