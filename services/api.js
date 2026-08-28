@@ -1,4 +1,23 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:5000/api');
+const getBaseUrl = () => {
+  let envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!envUrl) {
+    return typeof window !== 'undefined' ? '/api' : 'http://localhost:5000/api';
+  }
+  
+  envUrl = envUrl.trim().replace(/\/+$/, '');
+  
+  if (!envUrl.startsWith('http://') && !envUrl.startsWith('https://') && !envUrl.startsWith('/')) {
+    envUrl = `https://${envUrl}`;
+  }
+  
+  if (!envUrl.endsWith('/api') && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
+    envUrl = `${envUrl}/api`;
+  }
+  
+  return envUrl;
+};
+
+const BASE_URL = getBaseUrl();
 
 async function apiRequest(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;

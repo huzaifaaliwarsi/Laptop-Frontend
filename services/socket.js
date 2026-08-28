@@ -3,11 +3,13 @@ import { io } from 'socket.io-client';
 let socket = null;
 
 const resolveSocketUrl = () => {
-  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
-    return process.env.NEXT_PUBLIC_SOCKET_URL;
-  }
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '');
+  let url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (url) {
+    url = url.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `https://${url}`;
+    }
+    return url;
   }
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
