@@ -98,13 +98,9 @@ export default function ManageCategoriesModal({
   };
 
   const handleDeleteCategory = async (cat) => {
-    if (cat.is_system) {
-      toast('System categories cannot be deleted', 'error');
-      return;
-    }
-
-    if (cat.product_count > 0) {
-      toast(`Cannot delete "${cat.name}" because it is linked to ${cat.product_count} product(s)`, 'error');
+    const productCount = parseInt(cat.product_count || 0, 10);
+    if (productCount > 0) {
+      toast(`Cannot delete "${cat.name}" because it is linked to ${productCount} product(s)`, 'error');
       return;
     }
 
@@ -268,7 +264,7 @@ export default function ManageCategoriesModal({
                   categories.map((c) => {
                     const isCurrent = selectedCategory && selectedCategory.toLowerCase() === c.name.toLowerCase();
                     const productCount = parseInt(c.product_count || 0, 10);
-                    const canDelete = !c.is_system && productCount === 0;
+                    const canDelete = productCount === 0;
 
                     return (
                       <tr
@@ -326,7 +322,7 @@ export default function ManageCategoriesModal({
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           {c.is_system ? (
                             <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-                              System
+                              Default
                             </span>
                           ) : (
                             <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>
@@ -354,7 +350,7 @@ export default function ManageCategoriesModal({
                                 style={{ padding: '3px 8px', fontSize: 11 }}
                                 onClick={() => handleDeleteCategory(c)}
                                 disabled={deletingId === c.id}
-                                title="Delete unused category"
+                                title="Delete empty category from database"
                               >
                                 {deletingId === c.id ? (
                                   <RefreshCw size={12} className="spin" />
@@ -368,7 +364,7 @@ export default function ManageCategoriesModal({
                                 className="btn small"
                                 style={{ padding: '3px 8px', fontSize: 11, opacity: 0.4, cursor: 'not-allowed' }}
                                 disabled
-                                title={c.is_system ? 'System default category cannot be deleted' : `Assigned to ${productCount} products`}
+                                title={`Cannot delete: Assigned to ${productCount} active product(s)`}
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -384,7 +380,7 @@ export default function ManageCategoriesModal({
           </div>
 
           <p style={{ margin: '8px 0 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <AlertCircle size={12} /> Categories with active stock products or system categories cannot be deleted to maintain database referential integrity.
+            <AlertCircle size={12} /> Any category with 0 stock items can be deleted anytime. Categories assigned to active stock products cannot be deleted.
           </p>
         </div>
       </div>
