@@ -32,9 +32,8 @@ export default function VendorReturnModal({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Replacement / Exchange states
-  const [replacementMode, setReplacementMode] = useState('same'); // 'same' | 'different'
-  const [sameReplacementQty, setSameReplacementQty] = useState(1);
+  // Replacement / Exchange mode: 'same' (standard claim) | 'different' (exchange for different model)
+  const [replacementMode, setReplacementMode] = useState('same');
 
   // Different product — select from inventory
   const [allProducts, setAllProducts] = useState([]);
@@ -85,7 +84,6 @@ export default function VendorReturnModal({
         .catch(console.error);
 
       setQuantity(1);
-      setSameReplacementQty(1);
       const defaultRate = product.costPrice || product.cost_price || '';
       setUnitRate(defaultRate);
       setReason('Defective product return');
@@ -163,7 +161,7 @@ export default function VendorReturnModal({
         amount: totalAmount,
         initialSettlement: numSettled,
         receivedNow: numSettled,
-        settlementMethod: isExchange ? 'Exchange Credit' : settlementMethod,
+        settlementMethod: isExchange ? 'Product Replacement / Exchange' : settlementMethod,
         reason: reason.trim(),
         referenceId: referenceId.trim(),
         date
@@ -171,18 +169,20 @@ export default function VendorReturnModal({
 
       if (isExchange) {
         payload.replacementMode = replacementMode;
-        if (replacementMode === 'same') {
-          payload.sameReplacementQty = parseInt(sameReplacementQty || numQty, 10);
-        } else {
-          // Existing inventory product — just add stock
-          payload.replacementProductId = diffSelectedProduct.id;
-          payload.replacementProductQty = diffQty;
+        if (replacementMode === 'different' && diffSelectedProduct) {
+          payload.replacementProductData = {
+            id: diffSelectedProduct.id,
+            quantity: diffQty,
+            brand: diffSelectedProduct.brand,
+            model: diffSelectedProduct.model,
+            costPrice: diffSelectedProduct.costPrice || diffSelectedProduct.cost_price || 0
+          };
         }
       }
 
       const res = await api.post('/invoices/vendor-return', payload);
       if (res.success) {
-        toast(`Vendor return processed! ${numQty} units deducted from stock.${isExchange ? ' Replacement stock updated.' : ''}`);
+        toast(`Vendor return processed! ${numQty} unit(s) of ${product.code} deducted from stock.`);
         onClose();
         if (onSuccess) onSuccess();
       }
@@ -320,11 +320,7 @@ export default function VendorReturnModal({
               min="1"
               max={currentStock}
               value={quantity}
-              onChange={(e) => {
-                const val = e.target.value;
-                setQuantity(val);
-                if (replacementMode === 'same') setSameReplacementQty(val);
-              }}
+              onChange={(e) => setQuantity(e.target.value)}
               required
             />
           </div>
@@ -406,24 +402,46 @@ export default function VendorReturnModal({
               border: '1px solid rgba(59, 130, 246, 0.25)',
               borderRadius: 8
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--primary)' }}>
-                  <ArrowRightLeft size={16} /> Incoming Replacement Product Configuration
+                  <ArrowRightLeft size={16} /> Vendor Replacement / Exchange Details
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                  Return Credit Value: <strong style={{ color: 'var(--text)' }}>{money(totalAmount)}</strong>
+                  Return Value: <strong style={{ color: 'var(--text)' }}>{money(totalAmount)}</strong>
                 </div>
               </div>
 
-              {/* Toggle: Same Product vs Different Product */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {/* Notice that stock will decrease */}
+              <div style={{
+                padding: '10px 12px',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: 6,
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12,
+                color: '#1e40af'
+              }}>
+                <CheckCircle2 size={16} style={{ color: '#2563eb', flexShrink: 0 }} />
+                <span>
+                  <strong>Stock Deduction:</strong> <strong>{numQty} unit(s)</strong> of <strong>{product.code} ({product.brand} {product.model || product.productName})</strong> will be <strong>deducted from inventory</strong> upon confirmation.
+                </span>
+              </div>
+
+              {/* Toggle: Standard Return for Replacement vs Received Different Product right now */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <button
                   type="button"
                   className={`btn small ${replacementMode === 'same' ? 'primary' : 'soft'}`}
                   style={{ flex: 1, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 600 }}
-                  onClick={() => setReplacementMode('same')}
+                  onClick={() => {
+                    setReplacementMode('same');
+                    setDiffSelectedProduct(null);
+                  }}
                 >
-                  <RefreshCw size={14} /> 1. Same Product Replacement (Same Model)
+                  <RefreshCw size={14} /> 1. Return for Replacement (Stock Decreases)
                 </button>
                 <button
                   type="button"
@@ -431,49 +449,9 @@ export default function VendorReturnModal({
                   style={{ flex: 1, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 600 }}
                   onClick={() => setReplacementMode('different')}
                 >
-                  <Layers size={14} /> 2. Different Product Replacement (New Model / Specs)
+                  <Layers size={14} /> 2. Exchange for Different Product (Add New Stock)
                 </button>
               </div>
-
-              {/* 1. Same Product Replacement View */}
-              {replacementMode === 'same' && (
-                <div style={{
-                  padding: '12px 14px',
-                  background: 'var(--card-bg, #fff)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
-                        {product.code} — {product.brand} {product.model || product.productName}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                        Category: {product.category || product.categoryName} • Unit Cost: {money(product.costPrice || product.cost_price || 0)}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <label style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>Replacement Quantity Received:</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min="1"
-                        max={numQty}
-                        style={{ width: 90 }}
-                        value={sameReplacementQty}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value || 1, 10);
-                          setSameReplacementQty(Math.min(Math.max(1, val), numQty));
-                        }}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <p style={{ margin: '8px 0 0 0', fontSize: 11, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircle2 size={13} /> {sameReplacementQty} unit(s) of this exact product will be added directly into inventory stock upon saving.
-                  </p>
-                </div>
-              )}
 
               {/* 2. Different Product — Select from Inventory */}
               {replacementMode === 'different' && (
@@ -484,7 +462,7 @@ export default function VendorReturnModal({
                   borderRadius: 6
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text)', marginBottom: 10 }}>
-                    Select Replacement Product from Inventory:
+                    Select Replacement Product from Inventory to Add Stock:
                   </div>
 
                   {/* Search box */}
