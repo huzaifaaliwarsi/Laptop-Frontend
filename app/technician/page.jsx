@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import TechJobModal from '../../components/modules/repairs/TechJobModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
+import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
@@ -31,6 +32,10 @@ export default function TechnicianDashboardPage() {
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  if (loading && !data) {
+    return <DashboardSkeleton role="technician" />;
+  }
 
   const counts = data?.counts || {};
   const dueJobs = data?.dueJobs || [];
@@ -112,7 +117,7 @@ export default function TechnicianDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <ProgressLoader tableRow colSpan={6} compact message="Please wait while urgent tasks are loading..." />
+                    <TableRowSkeleton cols={6} rows={4} />
                   ) : dueJobs.length > 0 ? (
                     dueJobs.map(job => (
                       <tr key={job.id}>
@@ -170,7 +175,7 @@ export default function TechnicianDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <ProgressLoader tableRow colSpan={4} compact message="Please wait while assigned queue is loading..." />
+                    <TableRowSkeleton cols={4} rows={4} />
                   ) : recentJobs.length > 0 ? (
                     recentJobs.map(job => (
                       <tr key={job.id}>

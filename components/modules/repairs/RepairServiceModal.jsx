@@ -42,12 +42,12 @@ export default function RepairServiceModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim() || charges === '') {
-      toast('Service name and charges are required', 'error');
+    if (!name.trim()) {
+      toast('Service name is required', 'error');
       return;
     }
 
-    const cost = parseFloat(charges);
+    const cost = charges !== '' ? parseFloat(charges) : 0;
     if (isNaN(cost) || cost < 0) {
       toast('Valid charges amount is required', 'error');
       return;

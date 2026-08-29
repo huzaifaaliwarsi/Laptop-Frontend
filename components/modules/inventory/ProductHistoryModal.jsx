@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
-import ProgressLoader from '../../common/ProgressLoader';
+import { TableRowSkeleton } from '../../common/Skeleton';
 import api from '../../../services/api';
 
 function fmtDate(v) {
@@ -59,7 +59,7 @@ export default function ProductHistoryModal({
           </thead>
           <tbody>
             {loading ? (
-              <ProgressLoader tableRow colSpan={7} compact message="Loading movement history logs..." />
+              <TableRowSkeleton cols={7} rows={4} />
             ) : history.length > 0 ? (
               history.map((log) => (
                 <tr key={log.id}>

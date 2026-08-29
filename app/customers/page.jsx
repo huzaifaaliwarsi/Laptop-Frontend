@@ -5,7 +5,7 @@ import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import Modal from '../../components/common/Modal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 
 function money(v) {
@@ -217,7 +217,7 @@ export default function CustomersPage() {
               </thead>
               <tbody>
                 {loading && displayCustomers.length === 0 ? (
-                  <ProgressLoader tableRow colSpan={8} message="Please wait while customers are loading..." />
+                  <TableRowSkeleton cols={8} rows={6} />
                 ) : displayCustomers.length > 0 ? (
                   displayCustomers.map((c) => (
                     <tr key={c.id}>

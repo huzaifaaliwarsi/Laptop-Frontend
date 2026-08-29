@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { Skeleton, TableRowSkeleton } from '../../components/common/Skeleton';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -126,8 +126,20 @@ export default function LedgerPage() {
       </div>
 
       {loading ? (
-        <div className="card" style={{ padding: 20 }}>
-          <ProgressLoader message="Please wait while party ledger records are loading..." />
+        <div className="card" style={{ padding: '24px 30px', marginTop: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Skeleton width="40%" height="24px" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, margin: '10px 0' }}>
+              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
+              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
+              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} width="100%" height="36px" style={{ borderRadius: '6px' }} />
+              ))}
+            </div>
+          </div>
         </div>
       ) : ledgerData ? (
         <>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import StaffModal from '../../components/modules/staff/StaffModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 
 export default function StaffPage() {
@@ -91,7 +91,7 @@ export default function StaffPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={8} message="Please wait while staff directory is loading..." />
+                  <TableRowSkeleton cols={8} rows={5} />
                 ) : staffList.length > 0 ? (
                   staffList.map((st) => (
                     <tr key={st.id}>

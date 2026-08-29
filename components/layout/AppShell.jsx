@@ -7,6 +7,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 import ProgressLoader from '../common/ProgressLoader';
+import TopRouteProgressBar from '../common/TopRouteProgressBar';
 
 export default function AppShell({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -22,6 +23,7 @@ export default function AppShell({ children }) {
 
   return (
     <>
+      <TopRouteProgressBar />
       <div className="app">
         <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <section className="shell min-w-0 flex flex-col">

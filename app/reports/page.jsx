@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 
 function money(v) {
@@ -260,6 +260,7 @@ export default function ReportsPage() {
                     <tr>
                       <th>Tracking ID</th>
                       <th>Date</th>
+                      <th>Category</th>
                       <th>Customer</th>
                       <th>Job Type</th>
                       <th>Technician</th>
@@ -273,7 +274,7 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <ProgressLoader tableRow colSpan={11} message="Please wait while report data is generating..." />
+                    <TableRowSkeleton cols={11} rows={6} />
                   ) : reportData.length > 0 ? (
                     reportData.map((row, idx) => (
                       <tr key={row.id || idx}>
@@ -314,6 +315,19 @@ export default function ReportsPage() {
                           <>
                             <td><strong>{row.trackingId}</strong></td>
                             <td>{fmtDate(row.date)}</td>
+                            <td>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                                background: 'var(--blue-50, #eff6ff)',
+                                color: 'var(--primary, #2563eb)',
+                                border: '1px solid var(--border)'
+                              }}>
+                                {row.categoryName || 'Standard'}
+                              </span>
+                            </td>
                             <td><strong>{row.customerName}</strong></td>
                             <td>{row.jobType}</td>
                             <td>{row.technicianName}</td>

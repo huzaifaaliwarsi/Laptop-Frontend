@@ -7,10 +7,11 @@ import { TableRowSkeleton } from './Skeleton';
 import { useToast } from './Toast';
 import api from '../../services/api';
 
-export default function ManageCategoriesModal({
+export default function ManageRepairCategoriesModal({
   isOpen,
   onClose,
-  selectedCategory = '',
+  selectedCategoryId = null,
+  selectedCategoryName = '',
   onSelectCategory,
   onCategoriesUpdated
 }) {
@@ -18,14 +19,14 @@ export default function ManageCategoriesModal({
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
-  const [codePrefix, setCodePrefix] = useState('');
+  const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/categories/product');
+      const res = await api.get('/categories/repair');
       if (res.success && Array.isArray(res.data)) {
         setCategories(res.data);
         if (onCategoriesUpdated) {
@@ -33,7 +34,7 @@ export default function ManageCategoriesModal({
         }
       }
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      console.error('Error fetching repair categories:', err);
     } finally {
       setLoading(false);
     }
@@ -43,24 +44,15 @@ export default function ManageCategoriesModal({
     if (isOpen) {
       fetchCategories();
       setName('');
-      setCodePrefix('');
+      setDescription('');
     }
   }, [isOpen]);
 
-  const handleNameChange = (e) => {
-    const val = e.target.value;
-    setName(val);
-    if (!codePrefix || codePrefix.length <= 3) {
-      const autoPrefix = val.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
-      setCodePrefix(autoPrefix);
-    }
-  };
-
   const handleAddCategory = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const cleanName = name.trim();
     if (!cleanName) {
-      toast('Please enter a category name', 'error');
+      toast('Please enter a repair category name', 'error');
       return;
     }
 
@@ -68,72 +60,69 @@ export default function ManageCategoriesModal({
     try {
       const payload = {
         name: cleanName,
-        codePrefix: codePrefix.trim().toUpperCase() || cleanName.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'CAT'
+        description: description.trim() || null,
+        isActive: true
       };
 
-      const res = await api.post('/categories/product', payload);
+      const res = await api.post('/categories/repair', payload);
       if (res.success && res.data) {
-        toast(`Category "${res.data.name}" added and selected!`);
+        toast(`Repair category "${res.data.name}" added successfully!`);
         setName('');
-        setCodePrefix('');
+        setDescription('');
         
-        // 1. Select the new category immediately in the product form
+        // 1. Select the new category immediately
         if (onSelectCategory) {
-          onSelectCategory(res.data.name);
+          onSelectCategory(res.data);
         }
 
         // 2. Broadcast event to entire app
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('app:categories-updated', { detail: res.data }));
+          window.dispatchEvent(new CustomEvent('app:repair-categories-updated', { detail: res.data }));
         }
 
-        // 3. Auto-close modal immediately so user sees it selected in Image 2
+        // 3. Auto-close modal so user sees it selected
         onClose();
       }
     } catch (err) {
-      toast(err.message || 'Failed to add category', 'error');
+      toast(err.message || 'Failed to add repair category', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteCategory = async (cat) => {
-    if (cat.is_system) {
-      toast('System categories cannot be deleted', 'error');
+    const repairCount = parseInt(cat.repairCount || 0, 10);
+    if (repairCount > 0) {
+      toast(`Cannot delete "${cat.name}" because it is linked to ${repairCount} repair job(s)`, 'error');
       return;
     }
 
-    if (cat.product_count > 0) {
-      toast(`Cannot delete "${cat.name}" because it is linked to ${cat.product_count} product(s)`, 'error');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to permanently delete category "${cat.name}" from database?`)) {
+    if (!confirm(`Are you sure you want to permanently delete repair category "${cat.name}" from PostgreSQL database?`)) {
       return;
     }
 
     setDeletingId(cat.id);
     try {
-      const res = await api.delete(`/categories/product/${cat.id}`);
+      const res = await api.delete(`/categories/repair/${cat.id}`);
       if (res.success) {
-        toast(`Category "${cat.name}" deleted successfully.`);
+        toast(`Repair category "${cat.name}" deleted successfully.`);
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('app:categories-updated'));
+          window.dispatchEvent(new CustomEvent('app:repair-categories-updated'));
         }
         await fetchCategories();
       }
     } catch (err) {
-      toast(err.message || 'Failed to delete category', 'error');
+      toast(err.message || 'Failed to delete repair category', 'error');
     } finally {
       setDeletingId(null);
     }
   };
 
-  const handleSelect = (catName) => {
+  const handleSelect = (cat) => {
     if (onSelectCategory) {
-      onSelectCategory(catName);
+      onSelectCategory(cat);
     }
-    toast(`Category "${catName}" selected!`);
+    toast(`Category "${cat.name}" selected!`);
     onClose();
   };
 
@@ -141,8 +130,8 @@ export default function ManageCategoriesModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Manage Product Categories"
-      subtitle="Create new categories or delete unused categories stored in PostgreSQL database"
+      title="Manage Repair Categories"
+      subtitle="Create and manage device repair categories stored in PostgreSQL"
       wide={true}
       footer={
         <button type="button" className="btn primary" onClick={onClose}>
@@ -159,43 +148,42 @@ export default function ManageCategoriesModal({
           padding: 16
         }}>
           <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)' }}>
-            <Plus size={16} color="var(--primary)" /> Add New Category to Database
+            <Plus size={16} color="var(--primary)" /> Add New Repair Category
           </h4>
 
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr auto', gap: 12, alignItems: 'flex-end' }}>
               <div className="field" style={{ margin: 0 }}>
                 <label style={{ fontSize: 12, fontWeight: 600 }}>Category Name *</label>
                 <input
                   className="input"
                   value={name}
-                  onChange={handleNameChange}
+                  onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddCategory(e);
                     }
                   }}
-                  placeholder="e.g. Graphic Cards, Printers, Smart Watch"
+                  placeholder="e.g. Laptop, Mobile, Desktop, Printer, Drone"
                   required
                   autoFocus
                 />
               </div>
 
               <div className="field" style={{ margin: 0 }}>
-                <label style={{ fontSize: 12, fontWeight: 600 }}>Code Prefix (3-4 Chars)</label>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>Description (Optional)</label>
                 <input
                   className="input"
-                  value={codePrefix}
-                  onChange={(e) => setCodePrefix(e.target.value.toUpperCase())}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddCategory(e);
                     }
                   }}
-                  placeholder="e.g. GPU, PRN"
-                  maxLength={6}
+                  placeholder="e.g. Laptops, Ultrabooks, MacBooks"
                 />
               </div>
 
@@ -224,14 +212,14 @@ export default function ManageCategoriesModal({
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Layers size={16} color="var(--primary)" /> Database Categories ({categories.length})
+              <Layers size={16} color="var(--primary)" /> PostgreSQL Repair Categories ({categories.length})
             </h4>
             <button
               type="button"
               className="btn small soft"
               onClick={fetchCategories}
               disabled={loading}
-              title="Refresh categories"
+              title="Refresh repair categories"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
               <RefreshCw size={12} className={loading ? 'spin' : ''} /> Refresh
@@ -249,9 +237,9 @@ export default function ManageCategoriesModal({
               <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg, #fff)', zIndex: 1, borderBottom: '2px solid var(--border)' }}>
                 <tr>
                   <th style={{ textAlign: 'left', padding: '10px 14px' }}>Category Name</th>
-                  <th style={{ textAlign: 'left', padding: '10px 14px', width: 110 }}>Prefix</th>
-                  <th style={{ textAlign: 'center', padding: '10px 14px', width: 120 }}>Stock Items</th>
-                  <th style={{ textAlign: 'center', padding: '10px 14px', width: 100 }}>Type</th>
+                  <th style={{ textAlign: 'left', padding: '10px 14px' }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: '10px 14px', width: 120 }}>Repair Jobs</th>
+                  <th style={{ textAlign: 'center', padding: '10px 14px', width: 100 }}>Status</th>
                   <th style={{ textAlign: 'right', padding: '10px 14px', width: 150 }}>Actions</th>
                 </tr>
               </thead>
@@ -261,14 +249,15 @@ export default function ManageCategoriesModal({
                 ) : categories.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
-                      No categories found.
+                      No repair categories found.
                     </td>
                   </tr>
                 ) : (
                   categories.map((c) => {
-                    const isCurrent = selectedCategory && selectedCategory.toLowerCase() === c.name.toLowerCase();
-                    const productCount = parseInt(c.product_count || 0, 10);
-                    const canDelete = !c.is_system && productCount === 0;
+                    const isCurrent = (selectedCategoryId && Number(selectedCategoryId) === Number(c.id)) ||
+                                      (selectedCategoryName && selectedCategoryName.toLowerCase() === c.name.toLowerCase());
+                    const repairCount = parseInt(c.repairCount || 0, 10);
+                    const canDelete = repairCount === 0;
 
                     return (
                       <tr
@@ -297,17 +286,8 @@ export default function ManageCategoriesModal({
                           </div>
                         </td>
 
-                        <td style={{ padding: '10px 14px' }}>
-                          <code style={{
-                            fontSize: 12,
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            background: 'var(--bg)',
-                            border: '1px solid var(--border)',
-                            fontWeight: 700
-                          }}>
-                            {c.code_prefix || 'PRD'}
-                          </code>
+                        <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>
+                          {c.description || '—'}
                         </td>
 
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -315,24 +295,25 @@ export default function ManageCategoriesModal({
                             fontSize: 12,
                             padding: '2px 8px',
                             borderRadius: 10,
-                            background: productCount > 0 ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg)',
-                            color: productCount > 0 ? '#059669' : 'var(--muted)',
+                            background: repairCount > 0 ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg)',
+                            color: repairCount > 0 ? '#059669' : 'var(--muted)',
                             fontWeight: 600
                           }}>
-                            {productCount} {productCount === 1 ? 'item' : 'items'}
+                            {repairCount} {repairCount === 1 ? 'job' : 'jobs'}
                           </span>
                         </td>
 
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          {c.is_system ? (
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-                              System
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>
-                              Custom
-                            </span>
-                          )}
+                          <span style={{
+                            fontSize: 11,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: c.isActive !== false ? '#dcfce7' : '#f3f4f6',
+                            color: c.isActive !== false ? '#15803d' : '#6b7280',
+                            fontWeight: 700
+                          }}>
+                            {c.isActive !== false ? 'Active' : 'Inactive'}
+                          </span>
                         </td>
 
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
@@ -341,7 +322,7 @@ export default function ManageCategoriesModal({
                               type="button"
                               className="btn small soft"
                               style={{ padding: '3px 8px', fontSize: 11 }}
-                              onClick={() => handleSelect(c.name)}
+                              onClick={() => handleSelect(c)}
                               title={`Select ${c.name}`}
                             >
                               <Check size={12} /> Select
@@ -354,7 +335,7 @@ export default function ManageCategoriesModal({
                                 style={{ padding: '3px 8px', fontSize: 11 }}
                                 onClick={() => handleDeleteCategory(c)}
                                 disabled={deletingId === c.id}
-                                title="Delete unused category"
+                                title="Delete unused repair category"
                               >
                                 {deletingId === c.id ? (
                                   <RefreshCw size={12} className="spin" />
@@ -368,7 +349,7 @@ export default function ManageCategoriesModal({
                                 className="btn small"
                                 style={{ padding: '3px 8px', fontSize: 11, opacity: 0.4, cursor: 'not-allowed' }}
                                 disabled
-                                title={c.is_system ? 'System default category cannot be deleted' : `Assigned to ${productCount} products`}
+                                title={`Assigned to ${repairCount} repair job(s)`}
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -384,7 +365,7 @@ export default function ManageCategoriesModal({
           </div>
 
           <p style={{ margin: '8px 0 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <AlertCircle size={12} /> Categories with active stock products or system categories cannot be deleted to maintain database referential integrity.
+            <AlertCircle size={12} /> Repair categories with active or historical repair jobs cannot be deleted to preserve audit trails.
           </p>
         </div>
       </div>

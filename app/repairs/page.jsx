@@ -7,8 +7,9 @@ import CreateRepairJobModal from '../../components/modules/repairs/CreateRepairJ
 import AdminRepairJobModal from '../../components/modules/repairs/AdminRepairJobModal';
 import RepairPaymentModal from '../../components/modules/repairs/RepairPaymentModal';
 import RepairServiceModal from '../../components/modules/repairs/RepairServiceModal';
+import ManageRepairPartsModal from '../../components/modules/repairs/ManageRepairPartsModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -25,6 +26,8 @@ export default function RepairsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [technicians, setTechnicians] = useState([]);
   const [techFilter, setTechFilter] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -33,6 +36,7 @@ export default function RepairsPage() {
   const [paymentJob, setPaymentJob] = useState(null);
   const [isDeliveryPayment, setIsDeliveryPayment] = useState(false);
   const [isServicesCatalogOpen, setIsServicesCatalogOpen] = useState(false);
+  const [isPartsCatalogOpen, setIsPartsCatalogOpen] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState(null);
 
   const loadRepairs = () => {
@@ -40,20 +44,23 @@ export default function RepairsPage() {
     let url = '/repairs?';
     if (search) url += `search=${encodeURIComponent(search)}&`;
     if (techFilter) url += `technicianId=${encodeURIComponent(techFilter)}&`;
+    if (categoryFilter) url += `categoryId=${encodeURIComponent(categoryFilter)}&`;
 
     Promise.all([
       api.get(url),
-      api.get('/staff?role=technician')
-    ]).then(([rRes, tRes]) => {
+      api.get('/staff?role=technician'),
+      api.get('/categories/repair')
+    ]).then(([rRes, tRes, cRes]) => {
       if (rRes.success) setRepairs(rRes.data || []);
       if (tRes.success) setTechnicians(tRes.data || []);
+      if (cRes.success && Array.isArray(cRes.data)) setCategories(cRes.data);
     }).catch(console.error)
     .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     loadRepairs();
-  }, [search, techFilter]);
+  }, [search, techFilter, categoryFilter]);
 
   const filteredRepairs = repairs.filter(r => {
     if (statusFilter === 'all') return true;
@@ -86,14 +93,25 @@ export default function RepairsPage() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
               <input
                 className="input search"
-                style={{ maxWidth: 320 }}
-                placeholder="Search tracking ID, customer, brand, model..."
+                style={{ maxWidth: 280 }}
+                placeholder="Search tracking, category, customer..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               <select
                 className="select"
-                style={{ width: 170 }}
+                style={{ width: 160 }}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="">All Categories</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <select
+                className="select"
+                style={{ width: 160 }}
                 value={techFilter}
                 onChange={(e) => setTechFilter(e.target.value)}
               >
@@ -103,7 +121,14 @@ export default function RepairsPage() {
                 ))}
               </select>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setIsPartsCatalogOpen(true)}
+              >
+                <Icon name="package" /> Spare Parts Catalog
+              </button>
               <button
                 type="button"
                 className="btn"
@@ -170,6 +195,7 @@ export default function RepairsPage() {
               <thead>
                 <tr>
                   <th>Tracking ID</th>
+                  <th>Category</th>
                   <th>Customer</th>
                   <th>Device / Problem</th>
                   <th>Type</th>
@@ -183,7 +209,7 @@ export default function RepairsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={10} message="Please wait while repair jobs are loading..." />
+                  <TableRowSkeleton cols={11} rows={6} />
                 ) : filteredRepairs.length > 0 ? (
                   filteredRepairs.map((job) => (
                     <tr
@@ -193,11 +219,24 @@ export default function RepairsPage() {
                     >
                       <td><strong>{job.trackingId}</strong></td>
                       <td>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: 'var(--blue-50, #eff6ff)',
+                          color: 'var(--primary, #2563eb)',
+                          border: '1px solid var(--border)'
+                        }}>
+                          {job.categoryName || job.productType || 'Standard'}
+                        </span>
+                      </td>
+                      <td>
                         <strong>{job.customerName}</strong>
                         <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{job.contact}</div>
                       </td>
                       <td>
-                        <div>{[job.brand, job.model].filter(Boolean).join(' ') || job.productType}</div>
+                        <div>{[job.brand, job.model].filter(Boolean).join(' ') || job.categoryName || job.productType}</div>
                         <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{job.problem}</div>
                       </td>
                       <td>
@@ -288,6 +327,11 @@ export default function RepairsPage() {
         isOpen={isServicesCatalogOpen}
         onClose={() => setIsServicesCatalogOpen(false)}
         onSuccess={() => loadRepairs()}
+      />
+
+      <ManageRepairPartsModal
+        isOpen={isPartsCatalogOpen}
+        onClose={() => setIsPartsCatalogOpen(false)}
       />
 
       <InvoicePreviewModal

@@ -11,7 +11,7 @@ import VendorReturnModal from '../../components/modules/inventory/VendorReturnMo
 import BulkCsvModal from '../../components/modules/inventory/BulkCsvModal';
 import ProductHistoryModal from '../../components/modules/inventory/ProductHistoryModal';
 import ManageCategoriesModal from '../../components/common/ManageCategoriesModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/common/Toast';
 
@@ -176,7 +176,7 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={10} message="Please wait while inventory is loading..." />
+                  <TableRowSkeleton cols={10} rows={6} />
                 ) : products.length > 0 ? (
                   products.map((p) => (
                     <tr key={p.id}>

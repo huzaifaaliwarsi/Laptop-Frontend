@@ -5,7 +5,7 @@ import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import WhatsappSimulatorModal from '../../components/modules/whatsapp/WhatsappSimulatorModal';
 import WhatsappSettingsModal from '../../components/modules/whatsapp/WhatsappSettingsModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { ChatListSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 
 function fmtTime(v) {
@@ -169,7 +169,7 @@ export default function WhatsappPage() {
           </div>
           <div className="crm-list">
             {loading ? (
-              <ProgressLoader compact minHeight="200px" message="Loading conversations..." />
+              <ChatListSkeleton count={6} />
             ) : conversations.length > 0 ? (
               conversations.map(conv => (
                 <div

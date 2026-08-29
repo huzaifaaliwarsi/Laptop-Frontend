@@ -5,7 +5,7 @@ import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -114,7 +114,7 @@ export default function AccountsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={8} message="Please wait while accounts are loading..." />
+                  <TableRowSkeleton cols={8} rows={5} />
                 ) : accounts.length > 0 ? (
                   accounts.map((acc) => (
                     <tr key={acc.id}>

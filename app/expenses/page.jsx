@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import ExpenseModal from '../../components/modules/expenses/ExpenseModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 
 function money(v) {
@@ -179,7 +179,7 @@ export default function ExpensesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={9} message="Please wait while expenses are loading..." />
+                  <TableRowSkeleton cols={9} rows={5} />
                 ) : expenses.length > 0 ? (
                   expenses.map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50/60 transition-colors">

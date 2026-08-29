@@ -10,7 +10,7 @@ import CreateRepairJobModal from '../../components/modules/repairs/CreateRepairJ
 import AddProductModal from '../../components/modules/inventory/AddProductModal';
 import ExpenseModal from '../../components/modules/expenses/ExpenseModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
-
+import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 import { useToast } from '../../components/common/Toast';
 
 function money(v) {
@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
 
   // Modals
   const [isSaleOpen, setIsSaleOpen] = useState(false);
@@ -50,26 +49,6 @@ export default function DashboardPage() {
     loadDashboard();
   }, []);
 
-  const handleResetData = async () => {
-    const confirmation = window.confirm(
-      '⚠️ RESET ALL DATA WARNING:\n\nThis will permanently delete all test/transactional data:\n• Invoices, Sales & Purchases\n• Inventory Products & Stock Movements\n• Repair Jobs & Diagnosis Records\n• Accounts, Ledger & Payments\n• Customers & Vendors\n• Operating Expenses\n\nYour Admin/Staff user login accounts will be safely preserved.\n\nAre you sure you want to completely empty the database?'
-    );
-    if (!confirmation) return;
-
-    setResetting(true);
-    try {
-      const res = await api.post('/settings/reset-database');
-      if (res.success) {
-        toast('Database reset successfully! All transactional records are now empty.', 'success');
-        loadDashboard();
-      }
-    } catch (err) {
-      toast(err.message || 'Failed to reset database', 'error');
-    } finally {
-      setResetting(false);
-    }
-  };
-
   const handleOpenInvoice = async (inv) => {
     try {
       const res = await api.get(`/invoices/${inv.id || inv.invoice_no}`);
@@ -80,7 +59,7 @@ export default function DashboardPage() {
   };
 
   if (loading && !data) {
-    return <div className="p-10 text-center text-slate-400 text-xs font-semibold">Loading dashboard metrics...</div>;
+    return <DashboardSkeleton role={role} />;
   }
 
   const isAdmin = role === 'admin';
@@ -133,17 +112,6 @@ export default function DashboardPage() {
           >
             <Icon name="banknote" /> + Record Expense
           </button>
-          {isAdmin && (
-            <button
-              type="button"
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 inline-flex items-center gap-1.5 transition-all cursor-pointer"
-              onClick={handleResetData}
-              disabled={resetting}
-              title="Completely empty all transactional, product, customer & vendor test records"
-            >
-              <Icon name="trash" /> {resetting ? 'Resetting...' : 'Reset Data'}
-            </button>
-          )}
         </div>
       </div>
 

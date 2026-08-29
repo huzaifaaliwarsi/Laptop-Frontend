@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import TechJobModal from '../../components/modules/repairs/TechJobModal';
-import ProgressLoader from '../../components/common/ProgressLoader';
+import { TableRowSkeleton } from '../../components/common/Skeleton';
 
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
@@ -77,6 +77,7 @@ export default function TechJobsPage() {
               <thead>
                 <tr>
                   <th>Tracking ID</th>
+                  <th>Category</th>
                   <th>Customer</th>
                   <th>Device / Problem</th>
                   <th>Job Type</th>
@@ -89,17 +90,30 @@ export default function TechJobsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <ProgressLoader tableRow colSpan={9} message="Please wait while active repair jobs are loading..." />
+                  <TableRowSkeleton cols={10} rows={6} />
                 ) : jobs.length > 0 ? (
                   jobs.map((j) => (
                     <tr key={j.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedJobId(j.id)}>
                       <td><strong>{j.trackingId}</strong></td>
                       <td>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: 'var(--blue-50, #eff6ff)',
+                          color: 'var(--primary, #2563eb)',
+                          border: '1px solid var(--border)'
+                        }}>
+                          {j.categoryName || j.productType || 'Standard'}
+                        </span>
+                      </td>
+                      <td>
                         <strong>{j.customerName}</strong>
                         <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{j.contact}</div>
                       </td>
                       <td>
-                        <div>{[j.brand, j.model].filter(Boolean).join(' ') || 'Device'}</div>
+                        <div>{[j.brand, j.model].filter(Boolean).join(' ') || j.categoryName || 'Device'}</div>
                         <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{j.problem}</div>
                       </td>
                       <td><span style={{ fontSize: 10, fontWeight: 700 }}>{j.jobType}</span></td>

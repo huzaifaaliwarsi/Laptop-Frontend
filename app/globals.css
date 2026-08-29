@@ -670,11 +670,17 @@ body {
 }
 
 .span-12 { grid-column: span 12; }
+.span-11 { grid-column: span 11; }
+.span-10 { grid-column: span 10; }
+.span-9 { grid-column: span 9; }
 .span-8 { grid-column: span 8; }
+.span-7 { grid-column: span 7; }
 .span-6 { grid-column: span 6; }
+.span-5 { grid-column: span 5; }
 .span-4 { grid-column: span 4; }
 .span-3 { grid-column: span 3; }
 .span-2 { grid-column: span 2; }
+.span-1 { grid-column: span 1; }
 
 .table-wrap {
   width: 100%;
@@ -2876,3 +2882,75 @@ tbody tr:hover {
     margin-bottom: 24px;
   }
 }
+
+/* ==========================================================================
+   SKELETON LOADING UI & SHIMMER SYSTEM
+   ========================================================================== */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-box {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    #edf2f7 0%,
+    #f7fafc 40%,
+    #e2e8f0 50%,
+    #f7fafc 60%,
+    #edf2f7 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  border-radius: 6px;
+}
+
+.skeleton-box.circle {
+  border-radius: 50%;
+}
+
+.skeleton-box.badge {
+  height: 20px;
+  border-radius: 9999px;
+}
+
+.skeleton-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.skeleton-table-row td {
+  padding: 14px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ==========================================================================
+   TOP ROUTE PROGRESS BAR (Navigation Transition)
+   ========================================================================== */
+.top-route-progress-bar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 999999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.top-route-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa, #38bdf8);
+  box-shadow: 0 0 10px #3b82f6, 0 0 5px #2563eb;
+  transition: width 0.2s ease-out, opacity 0.3s ease-in-out;
+}
+

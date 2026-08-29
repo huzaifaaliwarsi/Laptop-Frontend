@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
+import { DetailModalSkeleton } from '../../common/Skeleton';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -60,8 +61,8 @@ export default function AdminRepairJobModal({
 
   if (!job && loading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Loading Repair Card...">
-        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading repair ticket...</div>
+      <Modal isOpen={isOpen} onClose={onClose} title="Loading Repair Card..." wide={true}>
+        <DetailModalSkeleton />
       </Modal>
     );
   }
@@ -233,7 +234,8 @@ export default function AdminRepairJobModal({
           </div>
           <div className="panel-body">
             <div style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-              <strong>Product:</strong> {[job.productType, job.brand, job.model].filter(Boolean).join(' ') || 'Device'}<br />
+              <strong>Category:</strong> <span className="badge" style={{ fontSize: 10, padding: '1px 6px', background: 'var(--blue-50, #eff6ff)', color: 'var(--primary, #2563eb)' }}>{job.categoryName || job.productType || 'Standard'}</span><br />
+              <strong>Device:</strong> {[job.brand, job.model].filter(Boolean).join(' ') || job.categoryName || 'Device'}<br />
               <strong>Problem:</strong> {job.problem}<br />
               <strong>Expected Date:</strong> {fmtDate(job.expectedCompletion)}
             </div>
@@ -243,30 +245,49 @@ export default function AdminRepairJobModal({
                 <thead>
                   <tr>
                     <th>Item / Service</th>
-                    <th>Qty</th>
-                    <th style={{ textAlign: 'right' }}>Charges</th>
+                    <th style={{ textAlign: 'right' }}>Unit Price</th>
+                    <th style={{ textAlign: 'center', width: 50 }}>Qty</th>
+                    <th style={{ textAlign: 'right' }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {job.lines && job.lines.map((l, idx) => (
-                    <tr key={idx}>
-                      <td><strong>{l.name}</strong></td>
-                      <td>1</td>
-                      <td style={{ textAlign: 'right' }}>{money(l.charges)}</td>
-                    </tr>
-                  ))}
-                  {job.usedParts && job.usedParts.map((p, idx) => (
-                    <tr key={idx}>
-                      <td><strong>[Part] {p.name}</strong></td>
-                      <td>{p.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>{money(p.customerCharge)}</td>
-                    </tr>
-                  ))}
+                  {job.lines && job.lines.map((l, idx) => {
+                    const unitP = parseFloat(l.charges || 0);
+                    const qty = parseInt(l.quantity || 1, 10);
+                    const lTotal = l.lineTotal !== undefined ? parseFloat(l.lineTotal) : unitP * qty;
+                    return (
+                      <tr key={idx}>
+                        <td>
+                          <strong>{l.name}</strong>
+                          {l.condition && <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{l.condition}</div>}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>{money(unitP)}</td>
+                        <td style={{ textAlign: 'center' }}>{qty}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{money(lTotal)}</td>
+                      </tr>
+                    );
+                  })}
+                  {job.usedParts && job.usedParts.map((p, idx) => {
+                    const unitP = parseFloat(p.customerCharge || 0);
+                    const qty = parseInt(p.quantity || 1, 10);
+                    return (
+                      <tr key={idx}>
+                        <td>
+                          <strong>[Part] {p.name}</strong>
+                          <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>Code: {p.productCode}</div>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>{money(unitP)}</td>
+                        <td style={{ textAlign: 'center' }}>{qty}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{money(unitP * qty)}</td>
+                      </tr>
+                    );
+                  })}
                   {job.extraCharges > 0 && (
                     <tr>
                       <td><strong>Extra Charge</strong> ({job.extraReason || ''})</td>
-                      <td>1</td>
                       <td style={{ textAlign: 'right' }}>{money(job.extraCharges)}</td>
+                      <td style={{ textAlign: 'center' }}>1</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{money(job.extraCharges)}</td>
                     </tr>
                   )}
                 </tbody>
