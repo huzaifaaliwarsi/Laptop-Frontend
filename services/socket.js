@@ -25,13 +25,45 @@ export const getSocket = () => {
   if (typeof window === 'undefined') return null;
 
   if (!socket) {
-    socket = io(resolveSocketUrl(), {
-      withCredentials: true,
-      autoConnect: true,
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
+    const socketUrl = resolveSocketUrl();
+    
+    // Vercel Serverless Lambdas do not support persistent WebSockets
+    // If running against Vercel backend without a separate socket server, use a clean mock socket
+    const isVercelServerless = socketUrl && socketUrl.includes('.vercel.app') && !process.env.NEXT_PUBLIC_SOCKET_URL;
+    
+    if (isVercelServerless) {
+      socket = {
+        on: () => {},
+        off: () => {},
+        emit: () => {},
+        disconnect: () => {},
+        connected: false
+      };
+      return socket;
+    }
+
+    try {
+      socket = io(socketUrl, {
+        withCredentials: true,
+        autoConnect: true,
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 3,
+        reconnectionDelay: 2000,
+        timeout: 5000
+      });
+
+      socket.on('connect_error', () => {
+        // Silently handle connection error
+      });
+    } catch {
+      socket = {
+        on: () => {},
+        off: () => {},
+        emit: () => {},
+        disconnect: () => {},
+        connected: false
+      };
+    }
   }
 
   return socket;
