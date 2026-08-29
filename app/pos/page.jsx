@@ -9,6 +9,7 @@ import CustomSaleModal from '../../components/modules/pos/CustomSaleModal';
 import CustomerPurchaseModal from '../../components/modules/pos/CustomerPurchaseModal';
 import ExchangeModal from '../../components/modules/pos/ExchangeModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 import { useToast } from '../../components/common/Toast';
 
 function money(v) {
@@ -186,7 +187,7 @@ export default function PosPage() {
             </div>
 
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading products...</div>
+              <ProgressLoader compact minHeight="240px" message="Please wait while POS products are loading..." />
             ) : filteredProducts.length > 0 ? (
               <div className="pos-catalog-grid">
                 {filteredProducts.map(p => (

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import TechJobModal from '../../components/modules/repairs/TechJobModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
@@ -70,7 +71,7 @@ export default function TechCompletedPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>Loading completed jobs...</td></tr>
+                  <ProgressLoader tableRow colSpan={7} message="Please wait while completed repair records are loading..." />
                 ) : jobs.length > 0 ? (
                   jobs.map((j) => (
                     <tr key={j.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedJobId(j.id)}>

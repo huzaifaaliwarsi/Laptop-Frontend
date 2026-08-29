@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -125,8 +126,8 @@ export default function LedgerPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-          Loading party ledger records...
+        <div className="card" style={{ padding: 20 }}>
+          <ProgressLoader message="Please wait while party ledger records are loading..." />
         </div>
       ) : ledgerData ? (
         <>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
+import ProgressLoader from '../../common/ProgressLoader';
 import api from '../../../services/api';
 
 function fmtDate(v) {
@@ -58,11 +59,7 @@ export default function ProductHistoryModal({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
-                  Loading movement logs...
-                </td>
-              </tr>
+              <ProgressLoader tableRow colSpan={7} compact message="Loading movement history logs..." />
             ) : history.length > 0 ? (
               history.map((log) => (
                 <tr key={log.id}>

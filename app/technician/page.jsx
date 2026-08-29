@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import TechJobModal from '../../components/modules/repairs/TechJobModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
@@ -111,7 +112,7 @@ export default function TechnicianDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>Loading...</td></tr>
+                    <ProgressLoader tableRow colSpan={6} compact message="Please wait while urgent tasks are loading..." />
                   ) : dueJobs.length > 0 ? (
                     dueJobs.map(job => (
                       <tr key={job.id}>
@@ -169,7 +170,7 @@ export default function TechnicianDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>Loading...</td></tr>
+                    <ProgressLoader tableRow colSpan={4} compact message="Please wait while assigned queue is loading..." />
                   ) : recentJobs.length > 0 ? (
                     recentJobs.map(job => (
                       <tr key={job.id}>

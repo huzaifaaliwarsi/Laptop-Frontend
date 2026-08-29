@@ -8,6 +8,7 @@ import AdminRepairJobModal from '../../components/modules/repairs/AdminRepairJob
 import RepairPaymentModal from '../../components/modules/repairs/RepairPaymentModal';
 import RepairServiceModal from '../../components/modules/repairs/RepairServiceModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -182,11 +183,7 @@ export default function RepairsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>
-                      Loading repair jobs from database...
-                    </td>
-                  </tr>
+                  <ProgressLoader tableRow colSpan={10} message="Please wait while repair jobs are loading..." />
                 ) : filteredRepairs.length > 0 ? (
                   filteredRepairs.map((job) => (
                     <tr

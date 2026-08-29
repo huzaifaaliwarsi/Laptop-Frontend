@@ -5,6 +5,7 @@ import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -113,11 +114,7 @@ export default function AccountsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>
-                      Loading accounts ledger...
-                    </td>
-                  </tr>
+                  <ProgressLoader tableRow colSpan={8} message="Please wait while accounts are loading..." />
                 ) : accounts.length > 0 ? (
                   accounts.map((acc) => (
                     <tr key={acc.id}>

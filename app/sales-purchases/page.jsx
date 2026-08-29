@@ -7,6 +7,7 @@ import Icon from '../../components/common/Icon';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
 import VendorReturnModal from '../../components/modules/inventory/VendorReturnModal';
 import SalesReturnModal from '../../components/modules/pos/SalesReturnModal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 import { useToast } from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
 
@@ -227,11 +228,7 @@ export default function SalesPurchasesPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={11} style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>
-                      Loading invoice records...
-                    </td>
-                  </tr>
+                  <ProgressLoader tableRow colSpan={11} message="Please wait while invoices are loading..." />
                 ) : invoices.length > 0 ? (
                   invoices.map((inv) => (
                     <tr

@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import Modal from '../../components/common/Modal'
+import Modal from '../../components/common/Modal';
+import ProgressLoader from '../../components/common/ProgressLoader';
 import { useToast } from '../../components/common/Toast';
 
 function money(v) {
@@ -144,11 +145,7 @@ export default function VendorsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>
-                      Loading vendor directory...
-                    </td>
-                  </tr>
+                  <ProgressLoader tableRow colSpan={8} message="Please wait while vendors are loading..." />
                 ) : vendors.length > 0 ? (
                   vendors.map((v) => (
                     <tr key={v.id}>
