@@ -3,6 +3,7 @@ import { Store, Phone, MapPin, CreditCard, DollarSign, CheckCircle2, Clock } fro
 import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
 import QuickAddVendorModal from '../../common/QuickAddVendorModal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -22,6 +23,14 @@ export default function AddProductModal({
   const [isManualPaid, setIsManualPaid] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [referenceId, setReferenceId] = useState('');
+
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
 
   const [formData, setFormData] = useState({
     category: 'Laptop',
@@ -76,6 +85,7 @@ export default function AddProductModal({
       setIsManualPaid(false);
       setPaymentMethod('Cash');
       setReferenceId('');
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
       setFormData({
         category: 'Laptop',
@@ -162,10 +172,10 @@ export default function AddProductModal({
     }));
   };
 
-  const selectedVendor = vendors.find(v => v.id === formData.vendorId);
+  const selectedVendor = vendors.find(v => v.id === formData.vendorId || (formData.vendorName && v.name === formData.vendorName));
   const qty = parseInt(formData.quantity || 1, 10);
   const cost = parseFloat(formData.costPrice || 0);
-  const totalCost = qty * (isNaN(cost) ? 0 : cost);
+  const totalCost = (isNaN(qty) ? 1 : qty) * (isNaN(cost) ? 0 : cost);
 
   // Derive calculated paid amount from seller's direct input
   const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
@@ -184,19 +194,8 @@ export default function AddProductModal({
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
-      toast('Category, Brand and Model are required', 'error');
-      return;
-    }
-
+  const executeAddProduct = async () => {
     const sale = parseFloat(formData.expectedSalePrice || (cost * 1.15));
-
-    if (isNaN(cost) || cost < 0) {
-      toast('Valid cost price is required', 'error');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -234,6 +233,7 @@ export default function AddProductModal({
       const res = await api.post('/products', payload);
       if (res.success) {
         toast(`Product ${res.data.code} saved successfully! ${formData.vendorId || formData.vendorName ? 'Vendor ledger updated.' : ''}`);
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) onSuccess(res.data);
       }
@@ -244,8 +244,53 @@ export default function AddProductModal({
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
+      toast('Category, Brand and Model are required', 'error');
+      return;
+    }
+
+    if (isNaN(cost) || cost < 0) {
+      toast('Valid cost price is required', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before payment outflow
+    if (effectivePaid > 0 && (formData.vendorId || formData.vendorName) && ['Cash', 'Online'].includes(paymentMethod)) {
+      try {
+        const balRes = await api.get('/accounts/drawer-balance');
+        if (balRes.success && balRes.data) {
+          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
+          if (effectivePaid > available + 0.005) {
+            setBalanceWarningModal({
+              isOpen: true,
+              availableBalance: available,
+              requiredAmount: effectivePaid,
+              paymentMethod
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not verify drawer balance before saving product:', err);
+      }
+    }
+
+    await executeAddProduct();
+  };
+
   return (
     <>
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeAddProduct}
+        availableBalance={balanceWarningModal.availableBalance}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        paymentMethod={balanceWarningModal.paymentMethod}
+      />
+
       <Modal
         isOpen={isOpen}
         onClose={onClose}

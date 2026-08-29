@@ -5,6 +5,7 @@ import { Store, Phone, MapPin, CreditCard, DollarSign, CheckCircle2, Clock } fro
 import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
 import QuickAddVendorModal from '../../common/QuickAddVendorModal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -15,10 +16,10 @@ export default function EditProductModal({
   onSuccess
 }) {
   const { toast } = useToast();
-  const [categories, setCategories] = useState([]);
   const [vendors, setVendors] = useState([]);
-  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
   // Vendor payment state
   const [paidInput, setPaidInput] = useState('');
@@ -26,71 +27,80 @@ export default function EditProductModal({
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [referenceId, setReferenceId] = useState('');
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   const [formData, setFormData] = useState({
-    category: '',
+    category: 'Laptop',
+    categoryName: 'Laptop',
     brand: '',
     model: '',
-    others: '',
     condition: 'Used',
+    quantity: 1,
     lowStockAlert: 1,
     costPrice: '',
     expectedSalePrice: '',
     remarks: '',
+    others: '',
     vendorId: '',
     vendorName: '',
     purchaseInvoiceNo: '',
     purchaseDate: new Date().toISOString().split('T')[0]
   });
 
-  const loadInitialData = () => {
-    Promise.all([
-      api.get('/categories'),
-      api.get('/vendors')
-    ])
-      .then(([cRes, vRes]) => {
-        if (cRes.success) setCategories(cRes.data.productCategories || []);
-        if (vRes.success) setVendors(vRes.data || []);
-      })
-      .catch(console.error);
-  };
-
   useEffect(() => {
-    if (isOpen && product) {
-      loadInitialData();
+    if (isOpen) {
+      const loadInitial = () => {
+        Promise.all([
+          api.get('/vendors'),
+          api.get('/categories')
+        ]).then(([vRes, cRes]) => {
+          if (vRes.success) setVendors(vRes.data || []);
+          if (cRes.success) setCategories(cRes.data.productCategories || []);
+        }).catch(console.error);
+      };
+
+      loadInitial();
 
       const handleCategoryUpdate = () => {
-        loadInitialData();
+        loadInitial();
       };
 
       if (typeof window !== 'undefined') {
         window.addEventListener('app:categories-updated', handleCategoryUpdate);
       }
 
-      const q = parseInt(product.currentStock || product.stockIn || product.initialStock || 1, 10);
-      const c = parseFloat(product.costPrice || 0);
-      const initialTot = q * c;
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
-      setPaidInput(initialTot > 0 ? String(initialTot) : '');
-      setIsManualPaid(false);
-      setPaymentMethod('Cash');
-      setReferenceId('');
+      if (product) {
+        setFormData({
+          category: product.category || 'Laptop',
+          categoryName: product.category || 'Laptop',
+          brand: product.brand || '',
+          model: product.model || '',
+          condition: product.condition || 'Used',
+          quantity: product.stockQuantity || product.quantity || 1,
+          lowStockAlert: product.lowStockAlert || 1,
+          costPrice: product.costPrice !== undefined ? String(product.costPrice) : '',
+          expectedSalePrice: product.expectedSalePrice !== undefined ? String(product.expectedSalePrice) : '',
+          remarks: product.remarks || '',
+          others: product.specifications || '',
+          vendorId: product.vendorId || product.sourceId || '',
+          vendorName: product.vendorName || (product.sourceName !== 'Manual Entry' ? product.sourceName : '') || '',
+          purchaseInvoiceNo: product.purchaseInvoiceNo || '',
+          purchaseDate: product.purchaseDate ? String(product.purchaseDate).split('T')[0] : new Date().toISOString().split('T')[0]
+        });
 
-      setFormData({
-        category: product.category || product.categoryName || '',
-        brand: product.brand || '',
-        model: product.model || product.productName || '',
-        others: product.specifications || '',
-        condition: product.condition || 'Used',
-        quantity: q,
-        lowStockAlert: product.lowStockAlert || 1,
-        costPrice: product.costPrice !== undefined && product.costPrice !== null ? String(product.costPrice) : '',
-        expectedSalePrice: product.expectedSalePrice !== undefined && product.expectedSalePrice !== null ? String(product.expectedSalePrice) : '',
-        remarks: product.remarks || '',
-        vendorId: product.vendorId || product.sourceId || '',
-        vendorName: product.vendorName || product.sourceName || '',
-        purchaseInvoiceNo: product.purchaseInvoiceNo || '',
-        purchaseDate: product.dateAdded ? String(product.dateAdded).split('T')[0] : new Date().toISOString().split('T')[0]
-      });
+        setPaidInput('');
+        setIsManualPaid(false);
+        setPaymentMethod('Cash');
+        setReferenceId('');
+      }
 
       return () => {
         if (typeof window !== 'undefined') {
@@ -100,11 +110,11 @@ export default function EditProductModal({
     }
   }, [isOpen, product]);
 
-  const qty = parseInt(formData.quantity !== undefined && formData.quantity !== '' ? formData.quantity : (product?.currentStock || 1), 10);
+  const qty = parseInt(formData.quantity || 1, 10);
   const cost = parseFloat(formData.costPrice || 0);
   const totalCost = (isNaN(qty) ? 1 : qty) * (isNaN(cost) ? 0 : cost);
 
-  // Auto-calculate paid amount when quantity or cost price changes unless user manually typed paid amount
+  // Auto-calculate full paid amount whenever quantity or costPrice changes
   useEffect(() => {
     if (!isManualPaid) {
       setPaidInput(totalCost > 0 ? String(totalCost) : '');
@@ -155,10 +165,8 @@ export default function EditProductModal({
 
   const selectedVendor = vendors.find(v => v.id === formData.vendorId || (formData.vendorName && v.name === formData.vendorName));
 
-  // Derive calculated paid amount
   const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
-  const remainingBalance = Math.max(0, totalCost - effectivePaid);
 
   let paymentStatusType = 'unpaid';
   if (totalCost > 0) {
@@ -171,15 +179,7 @@ export default function EditProductModal({
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!product) return;
-
-    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
-      toast('Category, Brand and Model are required', 'error');
-      return;
-    }
-
+  const executeEditProduct = async () => {
     setSubmitting(true);
     try {
       const payload = {
@@ -206,6 +206,7 @@ export default function EditProductModal({
       const res = await api.put(`/products/${product.id}`, payload);
       if (res.success) {
         toast(`Product ${product.code} and vendor ledger updated successfully!`);
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) onSuccess(res.data);
       }
@@ -216,8 +217,56 @@ export default function EditProductModal({
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!product) return;
+
+    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
+      toast('Category, Brand and Model are required', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before payment outflow
+    if (effectivePaid > 0 && (formData.vendorId || formData.vendorName) && ['Cash', 'Online'].includes(paymentMethod)) {
+      try {
+        const balRes = await api.get('/accounts/drawer-balance');
+        if (balRes.success && balRes.data) {
+          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
+          if (effectivePaid > available + 0.005) {
+            setBalanceWarningModal({
+              isOpen: true,
+              availableBalance: available,
+              requiredAmount: effectivePaid,
+              paymentMethod
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not verify drawer balance before updating product:', err);
+      }
+    }
+
+    await executeEditProduct();
+  };
+
   return (
     <>
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeEditProduct}
+        availableBalance={balanceWarningModal.availableBalance}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        paymentMethod={balanceWarningModal.paymentMethod}
+      />
+
+      <QuickAddVendorModal
+        isOpen={isAddVendorOpen}
+        onClose={() => setIsAddVendorOpen(false)}
+        onSuccess={handleVendorCreated}
+      />
+
       <Modal
         isOpen={isOpen}
         onClose={onClose}
@@ -485,13 +534,6 @@ export default function EditProductModal({
           </div>
         </form>
       </Modal>
-
-      {/* Quick Add Vendor Modal */}
-      <QuickAddVendorModal
-        isOpen={isAddVendorOpen}
-        onClose={() => setIsAddVendorOpen(false)}
-        onSuccess={handleVendorCreated}
-      />
     </>
   );
 }

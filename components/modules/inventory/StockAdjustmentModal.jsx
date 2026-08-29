@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Store, Phone, MapPin, CreditCard, DollarSign, CheckCircle2, Clock } from 'lucide-react';
 import Modal from '../../common/Modal';
 import QuickAddVendorModal from '../../common/QuickAddVendorModal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -33,6 +34,14 @@ export default function StockAdjustmentModal({
   const [referenceId, setReferenceId] = useState('');
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   const loadVendors = () => {
     api.get('/vendors')
       .then(res => {
@@ -49,6 +58,15 @@ export default function StockAdjustmentModal({
       setReasonPreset('Supplier Stock Refill / Purchase');
       setCustomReason('');
       setDate(new Date().toISOString().split('T')[0]);
+      setVendorId('');
+      setVendorName('');
+      setPurchaseInvoiceNo('');
+      setCostPrice('');
+      setPaidInput('');
+      setIsManualPaid(false);
+      setPaymentMethod('Cash');
+      setReferenceId('');
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
       if (product) {
         setVendorId(product.vendorId || product.sourceId || '');
@@ -56,17 +74,13 @@ export default function StockAdjustmentModal({
         setCostPrice(product.costPrice !== undefined && product.costPrice !== null ? String(product.costPrice) : '');
         setPurchaseInvoiceNo(product.purchaseInvoiceNo || '');
       }
-
-      setIsManualPaid(false);
-      setPaymentMethod('Cash');
-      setReferenceId('');
     }
-  }, [isOpen, product]);
+  }, [isOpen]);
 
-  const currentStock = product?.currentStock || 0;
+  const currentStock = parseInt(product?.stockQuantity || 0, 10);
   const numQty = parseInt(quantity || 0, 10);
-  const unitCost = parseFloat(costPrice || 0);
-  const totalCost = numQty * (isNaN(unitCost) ? 0 : unitCost);
+  const unitCost = costPrice !== '' ? parseFloat(costPrice) : parseFloat(product?.costPrice || 0);
+  const totalCost = numQty * unitCost;
   const newStock = direction === 'IN' ? currentStock + numQty : currentStock - numQty;
 
   // Auto-calculate paid amount when totalCost changes unless user manually typed it
@@ -111,38 +125,10 @@ export default function StockAdjustmentModal({
   // Payment calculations
   const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
-  const remainingBalance = Math.max(0, totalCost - effectivePaid);
-
-  let paymentStatusType = 'unpaid';
-  if (totalCost > 0) {
-    if (effectivePaid >= totalCost) {
-      paymentStatusType = 'full';
-    } else if (effectivePaid > 0) {
-      paymentStatusType = 'partial';
-    } else {
-      paymentStatusType = 'unpaid';
-    }
-  }
 
   const finalReason = reasonPreset === '__custom__' ? customReason.trim() : reasonPreset;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!product) return;
-
-    if (numQty <= 0) {
-      toast('Quantity must be greater than zero', 'error');
-      return;
-    }
-    if (direction === 'OUT' && numQty > currentStock) {
-      toast(`Cannot deduct more than current stock of ${currentStock}`, 'error');
-      return;
-    }
-    if (!finalReason) {
-      toast('Please select or specify a reason', 'error');
-      return;
-    }
-
+  const executeStockAdjustment = async () => {
     setSubmitting(true);
     try {
       const payload = {
@@ -163,6 +149,7 @@ export default function StockAdjustmentModal({
 
       if (res.success) {
         toast(`Stock adjusted successfully! New stock: ${res.data.newStock}`);
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) onSuccess();
       }
@@ -173,10 +160,64 @@ export default function StockAdjustmentModal({
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!product) return;
+
+    if (numQty <= 0) {
+      toast('Quantity must be greater than zero', 'error');
+      return;
+    }
+    if (direction === 'OUT' && numQty > currentStock) {
+      toast(`Cannot deduct more than current stock of ${currentStock}`, 'error');
+      return;
+    }
+    if (!finalReason) {
+      toast('Please select or specify a reason', 'error');
+      return;
+    }
+
+    // Check Drawer Balance if Stock IN with Vendor Payment
+    if (direction === 'IN' && (vendorId || vendorName) && effectivePaid > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      try {
+        const balRes = await api.get('/accounts/drawer-balance');
+        if (balRes.success && balRes.data) {
+          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
+          if (effectivePaid > available + 0.005) {
+            setBalanceWarningModal({
+              isOpen: true,
+              availableBalance: available,
+              requiredAmount: effectivePaid,
+              paymentMethod
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not verify drawer balance before stock adjustment:', err);
+      }
+    }
+
+    await executeStockAdjustment();
+  };
+
   if (!product) return null;
 
   return (
     <>
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeStockAdjustment}
+        availableBalance={balanceWarningModal.availableBalance}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        paymentMethod={balanceWarningModal.paymentMethod}
+      />
+      <QuickAddVendorModal
+        isOpen={isAddVendorOpen}
+        onClose={() => setIsAddVendorOpen(false)}
+        onVendorCreated={handleVendorCreated}
+      />
       <Modal
         isOpen={isOpen}
         onClose={onClose}
@@ -556,13 +597,6 @@ export default function StockAdjustmentModal({
           </div>
         </form>
       </Modal>
-
-      {/* Quick Add Vendor Modal */}
-      <QuickAddVendorModal
-        isOpen={isAddVendorOpen}
-        onClose={() => setIsAddVendorOpen(false)}
-        onSuccess={handleVendorCreated}
-      />
     </>
   );
 }

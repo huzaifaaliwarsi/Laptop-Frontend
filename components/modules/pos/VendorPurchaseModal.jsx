@@ -7,6 +7,8 @@ import CommonProductFields from '../../common/CommonProductFields';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
+
 function money(v) {
   const num = parseFloat(v || 0);
   return 'PKR ' + num.toLocaleString('en-PK', { maximumFractionDigits: 2 });
@@ -28,6 +30,14 @@ export default function VendorPurchaseModal({
   const [paid, setPaid] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitAction, setSubmitAction] = useState('save_preview');
+
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
 
   const [productData, setProductData] = useState({
     category: 'Laptop',
@@ -75,6 +85,7 @@ export default function VendorPurchaseModal({
       setPaid('');
       setReferenceId('');
       setDate(new Date().toISOString().split('T')[0]);
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
       setProductData({
         category: 'Laptop',
         brand: '',
@@ -119,13 +130,7 @@ export default function VendorPurchaseModal({
   const numPaid = paid === '' ? totalCost : parseFloat(paid || 0);
   const balance = Math.max(0, totalCost - numPaid);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!vendorName.trim() || !productData.brand.trim() || !productData.model.trim() || totalCost <= 0) {
-      toast('Please fill all required vendor and product fields', 'error');
-      return;
-    }
-
+  const executeVendorPurchase = async () => {
     const productObj = {
       category: productData.category || 'Laptop',
       categoryName: productData.category || 'Laptop',
@@ -172,6 +177,7 @@ export default function VendorPurchaseModal({
       const res = await api.post('/pos/vendor-purchase', payload);
       if (res.success) {
         toast('Vendor Purchase recorded & inventory stock updated!');
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) {
           const shouldPreview = submitAction === 'save_preview';
@@ -183,6 +189,37 @@ export default function VendorPurchaseModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!vendorName.trim() || !productData.brand.trim() || !productData.model.trim() || totalCost <= 0) {
+      toast('Please fill all required vendor and product fields', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before payment outflow
+    if (numPaid > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      try {
+        const balRes = await api.get('/accounts/drawer-balance');
+        if (balRes.success && balRes.data) {
+          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
+          if (numPaid > available + 0.005) {
+            setBalanceWarningModal({
+              isOpen: true,
+              availableBalance: available,
+              requiredAmount: numPaid,
+              paymentMethod
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not verify drawer balance before purchase:', err);
+      }
+    }
+
+    await executeVendorPurchase();
   };
 
   return (
@@ -315,6 +352,17 @@ export default function VendorPurchaseModal({
           </div>
         </div>
       </form>
+
+      {/* Insufficient Drawer Balance Alert & Confirmation Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeVendorPurchase}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }

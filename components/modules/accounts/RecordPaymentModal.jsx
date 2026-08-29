@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -24,6 +25,14 @@ export default function RecordPaymentModal({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   useEffect(() => {
     if (isOpen && account) {
       setAmount(account.remaining || '');
@@ -31,6 +40,7 @@ export default function RecordPaymentModal({
       setReferenceId('');
       setNotes('Installment settlement');
       setDate(new Date().toISOString().split('T')[0]);
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
     }
   }, [isOpen, account]);
 
@@ -40,17 +50,7 @@ export default function RecordPaymentModal({
   const payAmount = parseFloat(amount || 0);
   const isReceivable = account.type.includes('Receivable');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (payAmount <= 0) {
-      toast('Payment amount must be greater than zero', 'error');
-      return;
-    }
-    if (payAmount > remaining + 0.005) {
-      toast(`Payment cannot exceed outstanding balance of PKR ${remaining.toFixed(2)}`, 'error');
-      return;
-    }
-
+  const executePayment = async () => {
     setSubmitting(true);
     try {
       const res = await api.post(`/accounts/${account.id}/payment`, {
@@ -63,6 +63,7 @@ export default function RecordPaymentModal({
 
       if (res.success) {
         toast('Payment installment recorded & balance updated!');
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) onSuccess();
       }
@@ -71,6 +72,41 @@ export default function RecordPaymentModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (payAmount <= 0) {
+      toast('Payment amount must be greater than zero', 'error');
+      return;
+    }
+    if (payAmount > remaining + 0.005) {
+      toast(`Payment cannot exceed outstanding balance of PKR ${remaining.toFixed(2)}`, 'error');
+      return;
+    }
+
+    // If making payment OUT to vendor, check drawer balance
+    if (!isReceivable && ['Cash', 'Online'].includes(paymentMethod)) {
+      try {
+        const balRes = await api.get('/accounts/drawer-balance');
+        if (balRes.success && balRes.data) {
+          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
+          if (payAmount > available + 0.005) {
+            setBalanceWarningModal({
+              isOpen: true,
+              availableBalance: available,
+              requiredAmount: payAmount,
+              paymentMethod
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not verify drawer balance before paying vendor:', err);
+      }
+    }
+
+    await executePayment();
   };
 
   return (
@@ -174,6 +210,17 @@ export default function RecordPaymentModal({
           </div>
         </div>
       </form>
+
+      {/* Insufficient Drawer Balance Alert & Confirmation Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executePayment}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }
