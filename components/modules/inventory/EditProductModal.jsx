@@ -265,6 +265,7 @@ export default function EditProductModal({
         availableBalance={balanceWarningModal.availableBalance}
         requiredAmount={balanceWarningModal.requiredAmount}
         paymentMethod={balanceWarningModal.paymentMethod}
+        isSubmitting={submitting}
       />
 
       <QuickAddVendorModal

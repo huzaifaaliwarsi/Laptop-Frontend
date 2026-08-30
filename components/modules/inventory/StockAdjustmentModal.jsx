@@ -232,6 +232,7 @@ export default function StockAdjustmentModal({
         availableBalance={balanceWarningModal.availableBalance}
         requiredAmount={balanceWarningModal.requiredAmount}
         paymentMethod={balanceWarningModal.paymentMethod}
+        isSubmitting={submitting}
       />
       <QuickAddVendorModal
         isOpen={isAddVendorOpen}

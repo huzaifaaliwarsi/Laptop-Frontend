@@ -298,6 +298,7 @@ export default function AddProductModal({
         availableBalance={balanceWarningModal.availableBalance}
         requiredAmount={balanceWarningModal.requiredAmount}
         paymentMethod={balanceWarningModal.paymentMethod}
+        isSubmitting={submitting}
       />
 
       <Modal

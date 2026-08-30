@@ -1,7 +1,5 @@
-'use client';
-
-import React from 'react';
-import { AlertTriangle, X, CheckCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertTriangle, X, CheckCircle, Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import { numStr } from '../../utils/formatters';
 
@@ -14,6 +12,8 @@ export default function InsufficientBalanceConfirmModal({
   availableBalance = 0,
   isSubmitting = false
 }) {
+  const [localSubmitting, setLocalSubmitting] = useState(false);
+
   if (!isOpen) return null;
 
   const req = parseFloat(requiredAmount || 0);
@@ -22,10 +22,27 @@ export default function InsufficientBalanceConfirmModal({
   const projectedBalance = avail - req;
   const channel = paymentMethod === 'Online' ? 'Online / Bank Account' : 'Cash Drawer';
 
+  const isLoading = isSubmitting || localSubmitting;
+
+  const handleConfirmClick = async (e) => {
+    e.preventDefault();
+    if (isLoading) return;
+    setLocalSubmitting(true);
+    try {
+      if (onConfirm) {
+        await onConfirm();
+      }
+    } catch (err) {
+      console.error('Confirmation error:', err);
+    } finally {
+      setLocalSubmitting(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={isLoading ? undefined : onClose}
       title="Insufficient Balance"
       subtitle={`Available ${channel} balance is below the required payment amount`}
       zIndex={1000}
@@ -34,7 +51,7 @@ export default function InsufficientBalanceConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isLoading}
             style={{
               padding: '9px 20px',
               borderRadius: 8,
@@ -43,7 +60,8 @@ export default function InsufficientBalanceConfirmModal({
               color: '#374151',
               fontWeight: 600,
               fontSize: 13,
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1,
               display: 'flex',
               alignItems: 'center',
               gap: 6
@@ -53,25 +71,35 @@ export default function InsufficientBalanceConfirmModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
-            disabled={isSubmitting}
+            onClick={handleConfirmClick}
+            disabled={isLoading}
             style={{
               padding: '9px 22px',
               borderRadius: 8,
               border: 'none',
-              background: isSubmitting ? '#9ca3af' : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+              background: isLoading ? '#9ca3af' : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
               color: '#ffffff',
               fontWeight: 700,
               fontSize: 13,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 2px 8px rgba(220,38,38,0.35)'
+              gap: 8,
+              boxShadow: isLoading ? 'none' : '0 2px 8px rgba(220,38,38,0.35)',
+              transition: 'all 0.15s ease'
             }}
           >
-            <CheckCircle size={14} />
-            {isSubmitting ? 'Processing...' : 'Confirm & Proceed'}
+            {isLoading ? (
+              <>
+                <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle size={15} />
+                <span>Confirm & Proceed</span>
+              </>
+            )}
           </button>
         </div>
       }
