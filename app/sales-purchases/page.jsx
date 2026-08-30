@@ -107,20 +107,25 @@ export default function SalesPurchasesPage() {
     }
   };
 
-  // Calculate summaries: exclude voided/refunded from active totals
+  // Calculate summaries: exclude voided/refunded & subtract partial returns from active totals
   const activeSalesTotal = invoices
     .filter(i => !i.isVoided && ['Sales Invoice', 'Service Invoice', 'Repair Invoice'].includes(i.type))
-    .reduce((sum, i) => sum + (parseFloat(i.total) || 0), 0);
+    .reduce((sum, i) => sum + Math.max(0, (parseFloat(i.total) || 0) - (parseFloat(i.creditAdjusted) || 0)), 0);
 
   const activePurchasesTotal = invoices
     .filter(i => !i.isVoided && ['Vendor Purchase', 'Customer Purchase'].includes(i.type))
-    .reduce((sum, i) => sum + (parseFloat(i.total) || 0), 0);
+    .reduce((sum, i) => sum + Math.max(0, (parseFloat(i.total) || 0) - (parseFloat(i.creditAdjusted) || 0)), 0);
 
+  // Total refunded includes full voided totals as well as partial credit adjustments / returns
   const totalRefundedAmount = invoices
-    .filter(i => i.isVoided)
-    .reduce((sum, i) => sum + (parseFloat(i.refundAmount || i.total) || 0), 0);
+    .reduce((sum, i) => {
+      if (i.isVoided) {
+        return sum + (parseFloat(i.refundAmount || i.total) || 0);
+      }
+      return sum + (parseFloat(i.creditAdjusted) || 0);
+    }, 0);
 
-  const refundedCount = invoices.filter(i => i.isVoided).length;
+  const refundedCount = invoices.filter(i => i.isVoided || (parseFloat(i.creditAdjusted || 0) > 0)).length;
 
   return (
     <>

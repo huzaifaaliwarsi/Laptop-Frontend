@@ -41,11 +41,13 @@ export const clearClientCache = (pattern = null) => {
 if (typeof window !== 'undefined') {
   window.addEventListener('app:categories-updated', () => clearClientCache('categories'));
   window.addEventListener('app:repair-categories-updated', () => clearClientCache('categories|repairs'));
+  window.addEventListener('app:balance-updated', () => clearClientCache('accounts|drawer|balance|reports|dashboard'));
 }
 
 async function apiRequest(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const noCache = options.noCache === true;
+  const isDrawerEndpoint = cleanEndpoint.includes('/accounts/drawer');
+  const noCache = options.noCache === true || isDrawerEndpoint;
   const cacheTtl = options.cacheTtl || 15000; // 15 seconds client cache for GETs
 
   // If noCache requested, append _t=timestamp to bust any HTTP/CDN cache (no custom header needed)
@@ -66,17 +68,21 @@ async function apiRequest(endpoint, options = {}) {
   // If mutation, invalidate related cache keys
   if (!isGet) {
     if (cleanEndpoint.includes('/products') || cleanEndpoint.includes('/categories')) {
-      clearClientCache('products|categories|reports');
+      clearClientCache('products|categories|reports|accounts|drawer');
     } else if (cleanEndpoint.includes('/repairs')) {
-      clearClientCache('repairs|reports');
+      clearClientCache('repairs|reports|accounts|drawer');
     } else if (cleanEndpoint.includes('/invoices') || cleanEndpoint.includes('/pos') || cleanEndpoint.includes('/sale')) {
-      clearClientCache('invoices|reports|products|customers|vendors');
+      clearClientCache('invoices|reports|products|customers|vendors|accounts|drawer');
+    } else if (cleanEndpoint.includes('/expenses')) {
+      clearClientCache('expenses|reports|accounts|drawer');
+    } else if (cleanEndpoint.includes('/accounts')) {
+      clearClientCache('accounts|drawer|reports');
     } else if (cleanEndpoint.includes('/customers')) {
       clearClientCache('customers');
     } else if (cleanEndpoint.includes('/vendors')) {
       clearClientCache('vendors');
     } else if (cleanEndpoint.includes('/settings')) {
-      clearClientCache('settings');
+      clearClientCache('settings|accounts|drawer');
     } else {
       clientCache.clear();
     }
