@@ -291,13 +291,13 @@ export default function SalesPurchasesPage() {
                               <RotateCcw size={13} />
                             </button>
                           )}
-                          {inv.type === 'Sales Invoice' && !inv.isVoided && isAdmin && (
+                          {(inv.type === 'Sales Invoice' || inv.type === 'Customer Purchase' || inv.type === 'Exchange Invoice' || inv.type === 'Product Exchange') && !inv.isVoided && isAdmin && (
                             <button
                               type="button"
                               className="btn small soft"
                               style={{ padding: '3px 7px', color: '#dc2626' }}
                               onClick={() => handleVoidSale(inv.id)}
-                              title="Void / Sales Return"
+                              title={inv.type === 'Customer Purchase' ? 'Void / Revert Buyback' : inv.type.includes('Exchange') ? 'Void / Revert Exchange' : 'Void / Sales Return'}
                             >
                               <Ban size={13} />
                             </button>

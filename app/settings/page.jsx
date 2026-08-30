@@ -31,6 +31,8 @@ export default function SettingsPage() {
   // Balances Form State
   const [openingCash, setOpeningCash] = useState(0);
   const [openingOnline, setOpeningOnline] = useState(0);
+  const [liveCash, setLiveCash] = useState(0);
+  const [liveOnline, setLiveOnline] = useState(0);
 
   // Repair Categories State
   const [repairCategories, setRepairCategories] = useState([]);
@@ -69,8 +71,20 @@ export default function SettingsPage() {
       .catch(console.error);
   };
 
+  const loadDrawerBalances = () => {
+    api.get('/accounts/drawer-balance')
+      .then(res => {
+        if (res.success && res.data) {
+          setLiveCash(res.data.cash || 0);
+          setLiveOnline(res.data.online || 0);
+        }
+      })
+      .catch(console.error);
+  };
+
   const loadAll = () => {
     loadRepairCategories();
+    loadDrawerBalances();
     Promise.all([
       api.get('/settings/company'),
       api.get('/settings/opening-balances'),
@@ -90,8 +104,10 @@ export default function SettingsPage() {
         });
       }
       if (bRes.success && bRes.data) {
-        setOpeningCash(bRes.data.opening_cash_balance || 0);
-        setOpeningOnline(bRes.data.opening_online_balance || 0);
+        const cashVal = bRes.data.openingCash !== undefined ? bRes.data.openingCash : (bRes.data.opening_cash_balance || 0);
+        const onlineVal = bRes.data.openingOnline !== undefined ? bRes.data.openingOnline : (bRes.data.opening_online_balance || 0);
+        setOpeningCash(cashVal);
+        setOpeningOnline(onlineVal);
       }
       if (waRes.success && waRes.data) {
         setWaSettings({
@@ -108,6 +124,18 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadAll();
+
+    // Auto-refresh balance whenever any transaction fires the global event
+    const handleBalanceUpdated = () => loadDrawerBalances();
+    window.addEventListener('app:balance-updated', handleBalanceUpdated);
+
+    // Also poll every 30 seconds as a fallback (e.g., another tab/device made a transaction)
+    const pollInterval = setInterval(() => loadDrawerBalances(), 30000);
+
+    return () => {
+      window.removeEventListener('app:balance-updated', handleBalanceUpdated);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   const handleLogoUpload = (e) => {
@@ -145,11 +173,14 @@ export default function SettingsPage() {
     setSavingBalances(true);
     try {
       const res = await api.put('/settings/opening-balances', {
+        openingCash: parseFloat(openingCash || 0),
+        openingOnline: parseFloat(openingOnline || 0),
         openingCashBalance: parseFloat(openingCash || 0),
         openingOnlineBalance: parseFloat(openingOnline || 0)
       });
       if (res.success) {
-        toast('Opening cash & online balances updated!');
+        toast('Opening cash & online balances updated in Database!');
+        loadDrawerBalances();
       }
     } catch (err) {
       toast(err.message || 'Error saving balances', 'error');
@@ -344,6 +375,41 @@ export default function SettingsPage() {
                     <button type="submit" className="btn soft" disabled={savingBalances}>
                       {savingBalances ? 'Updating...' : 'Update Opening Balances'}
                     </button>
+                  </div>
+
+                  {/* Live Dynamic Available Balances Summary Callout */}
+                  <div className="span-12" style={{
+                    marginTop: 10,
+                    padding: '14px 16px',
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 10
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>💳 Available Balances</span>
+                      <button
+                        type="button"
+                        className="btn small soft"
+                        style={{ fontSize: 10, padding: '2px 8px' }}
+                        onClick={loadDrawerBalances}
+                      >
+                        Refresh Balances
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                      <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Live Cash in Drawer</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: liveCash < 0 ? '#dc2626' : '#16a34a', marginTop: 3 }} className="font-mono">
+                          PKR {liveCash.toLocaleString('en-PK', { maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Live Bank / Online Balance</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: liveOnline < 0 ? '#dc2626' : '#2563eb', marginTop: 3 }} className="font-mono">
+                          PKR {liveOnline.toLocaleString('en-PK', { maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </form>

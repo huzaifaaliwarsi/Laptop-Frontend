@@ -6,7 +6,7 @@ import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
-
+import { notifyBalanceUpdated } from '../../../utils/formatters';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 
 function money(v) {
@@ -178,6 +178,7 @@ export default function VendorPurchaseModal({
       if (res.success) {
         toast('Vendor Purchase recorded & inventory stock updated!');
         setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
+        notifyBalanceUpdated();
         onClose();
         if (onSuccess) {
           const shouldPreview = submitAction === 'save_preview';
@@ -200,22 +201,26 @@ export default function VendorPurchaseModal({
 
     // Check Drawer Balance before payment outflow
     if (numPaid > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
       try {
-        const balRes = await api.get('/accounts/drawer-balance');
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
         if (balRes.success && balRes.data) {
-          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
-          if (numPaid > available + 0.005) {
-            setBalanceWarningModal({
-              isOpen: true,
-              availableBalance: available,
-              requiredAmount: numPaid,
-              paymentMethod
-            });
-            return;
-          }
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
         }
       } catch (err) {
-        console.warn('Could not verify drawer balance before purchase:', err);
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || numPaid > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: numPaid,
+          paymentMethod
+        });
+        return;
       }
     }
 

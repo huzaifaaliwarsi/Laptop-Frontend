@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
+import { notifyBalanceUpdated } from '../../../utils/formatters';
 
 export default function ExpenseModal({
   isOpen,
@@ -22,6 +24,14 @@ export default function ExpenseModal({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   useEffect(() => {
     if (isOpen) {
       api.get('/categories')
@@ -34,6 +44,8 @@ export default function ExpenseModal({
           }
         })
         .catch(console.error);
+
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
       if (expense) {
         setCategory(expense.category || '');
@@ -54,18 +66,8 @@ export default function ExpenseModal({
     }
   }, [isOpen, expense]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const executeSaveExpense = async () => {
     const numAmt = parseFloat(amount);
-    if (isNaN(numAmt) || numAmt <= 0) {
-      toast('Valid expense amount is required', 'error');
-      return;
-    }
-    if (!description.trim()) {
-      toast('Expense description is required', 'error');
-      return;
-    }
-
     setSubmitting(true);
     try {
       const payload = {
@@ -87,6 +89,8 @@ export default function ExpenseModal({
 
       if (res.success) {
         toast(`Expense ${expense ? 'updated' : 'recorded'} successfully!`);
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
+        notifyBalanceUpdated();
         onClose();
         if (onSuccess) onSuccess();
       }
@@ -95,6 +99,47 @@ export default function ExpenseModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const numAmt = parseFloat(amount);
+    if (isNaN(numAmt) || numAmt <= 0) {
+      toast('Valid expense amount is required', 'error');
+      return;
+    }
+    if (!description.trim()) {
+      toast('Expense description is required', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before payment outflow
+    if (['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
+      try {
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
+        if (balRes.success && balRes.data) {
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
+        }
+      } catch (err) {
+        // API failed — treat available as 0 to force user confirmation
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || numAmt > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: numAmt,
+          paymentMethod
+        });
+        return;
+      }
+    }
+
+    await executeSaveExpense();
   };
 
   return (
@@ -206,6 +251,17 @@ export default function ExpenseModal({
           </div>
         </div>
       </form>
+
+      {/* Insufficient Drawer Balance Alert & Confirmation Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeSaveExpense}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }

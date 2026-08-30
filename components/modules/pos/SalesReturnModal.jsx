@@ -5,6 +5,7 @@ import { RotateCcw, AlertCircle, CheckCircle2, DollarSign, Package, User, Calend
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
+import { notifyBalanceUpdated } from '../../../utils/formatters';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -29,7 +30,10 @@ export default function SalesReturnModal({
 
   useEffect(() => {
     if (isOpen && invoice) {
-      setReason('Defective product / Hardware fault');
+      const isBuyback = invoice.type === 'Customer Purchase';
+      const isExchange = invoice.type === 'Exchange Invoice' || invoice.type === 'Product Exchange';
+      
+      setReason(isBuyback ? 'Buyback cancellation / Returned to customer' : isExchange ? 'Exchange cancelled / Reverted' : 'Defective product / Hardware fault');
       setCustomReason('');
       setRefundMethod(invoice.paymentMethod === 'Online' ? 'Online' : 'Cash');
       setRefundAmount(String(invoice.paid || invoice.total || 0));
@@ -41,6 +45,9 @@ export default function SalesReturnModal({
 
   if (!invoice) return null;
 
+  const isBuyback = invoice.type === 'Customer Purchase';
+  const isExchange = invoice.type === 'Exchange Invoice' || invoice.type === 'Product Exchange';
+
   const items = invoice.items || [];
   const totalPaid = parseFloat(invoice.paid || 0);
   const invoiceTotal = parseFloat(invoice.total || 0);
@@ -50,18 +57,18 @@ export default function SalesReturnModal({
 
     const finalReason = reason === 'Other' ? customReason.trim() : reason;
     if (!finalReason) {
-      toast('Please provide a reason for customer return / void', 'error');
+      toast('Please provide a reason for return / void', 'error');
       return;
     }
 
     const numRefund = parseFloat(refundAmount || 0);
     if (isNaN(numRefund) || numRefund < 0) {
-      toast('Refund amount cannot be negative', 'error');
+      toast('Amount cannot be negative', 'error');
       return;
     }
 
     if (refundMethod === 'Online' && numRefund > 0 && !referenceId.trim()) {
-      toast('Online payment reference ID is required for online refunds', 'error');
+      toast('Online payment reference ID is required for online settlement', 'error');
       return;
     }
 
@@ -76,23 +83,38 @@ export default function SalesReturnModal({
       });
 
       if (res.success) {
-        toast('Customer sales return processed & stock restored to inventory successfully!');
+        if (isBuyback) {
+          toast('Customer buyback reverted & inventory updated successfully!');
+        } else if (isExchange) {
+          toast('Product exchange reverted & inventory updated successfully!');
+        } else {
+          toast('Customer sales return processed & stock restored successfully!');
+        }
+        notifyBalanceUpdated();
         if (onSuccess) onSuccess(res.data);
         onClose();
       }
     } catch (err) {
-      toast(err.message || 'Error processing sales return', 'error');
+      toast(err.message || 'Error processing return', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const modalTitle = isBuyback
+    ? 'Customer Buyback Reversal & Void'
+    : isExchange
+    ? 'Product Exchange Reversal & Void'
+    : 'Customer Sales Return & Void Refund';
+
+  const modalSubtitle = `Process return/void for ${invoice.invoiceNo} — ${invoice.partyName || 'Customer'}`;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Customer Sales Return & Void Refund"
-      subtitle={`Process return for ${invoice.invoiceNo} — ${invoice.partyName || 'Customer'}`}
+      title={modalTitle}
+      subtitle={modalSubtitle}
       wide={true}
     >
       <form onSubmit={handleSubmit} className="sales-return-form">
@@ -110,15 +132,15 @@ export default function SalesReturnModal({
               <strong style={{ fontSize: 13, color: '#0f172a' }}>{invoice.invoiceNo}</strong>
             </div>
             <div>
-              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Customer</span>
-              <strong style={{ fontSize: 13, color: '#0f172a' }}>{invoice.partyName || 'Walk-in Customer'}</strong>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Party / Customer</span>
+              <strong style={{ fontSize: 13, color: '#0f172a' }}>{invoice.partyName || 'Customer'}</strong>
             </div>
             <div>
-              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Invoice Total</span>
-              <strong style={{ fontSize: 13, color: '#0f172a' }}>{money(invoiceTotal)}</strong>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Invoice Type</span>
+              <strong style={{ fontSize: 13, color: '#2563eb' }}>{invoice.type}</strong>
             </div>
             <div>
-              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Total Paid by Customer</span>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Total Amount Paid</span>
               <strong style={{ fontSize: 13, color: '#059669' }}>{money(totalPaid)}</strong>
             </div>
           </div>
@@ -126,7 +148,11 @@ export default function SalesReturnModal({
           {/* Items being returned */}
           <div style={{ marginTop: 12, borderTop: '1px dashed #cbd5e1', paddingTop: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
-              Products to be Restocked in Inventory:
+              {isBuyback
+                ? 'Product to be Removed from Shop Inventory (returned to customer):'
+                : isExchange
+                ? 'Exchange Products to be Reverted in Inventory:'
+                : 'Products to be Restocked in Inventory:'}
             </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map((item, idx) => (

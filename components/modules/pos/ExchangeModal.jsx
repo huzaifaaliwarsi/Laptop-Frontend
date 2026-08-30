@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Printer } from 'lucide-react';
 import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -54,6 +55,14 @@ export default function ExchangeModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitAction, setSubmitAction] = useState('save_preview');
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   useEffect(() => {
     if (isOpen) {
       Promise.all([
@@ -72,6 +81,7 @@ export default function ExchangeModal({
       setSettlementMethod('Cash');
       setSettlementPaid('');
       setReferenceId('');
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
       setInProductData({
         category: 'Laptop',
         brand: '',
@@ -123,19 +133,7 @@ export default function ExchangeModal({
   const numPaid = settlementPaid === '' ? diffAmount : parseFloat(settlementPaid || 0);
   const balance = Math.max(0, diffAmount - numPaid);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!customerName.trim() || !outProductId || !inProductData.brand.trim() || !inProductData.model.trim()) {
-      toast('Please select the outgoing product and enter the customer return product details', 'error');
-      return;
-    }
-
-    const outProd = productsList.find(p => p.id === outProductId);
-    if (!outProd || outProd.currentStock < 1) {
-      toast('Selected outgoing product is out of stock', 'error');
-      return;
-    }
-
+  const executeExchange = async () => {
     const inProductObj = {
       category: inProductData.category || 'Laptop',
       categoryName: inProductData.category || 'Laptop',
@@ -188,6 +186,7 @@ export default function ExchangeModal({
       const res = await api.post('/pos/exchange', payload);
       if (res.success) {
         toast('Exchange invoice processed and inventory stock synchronized!');
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) {
           const shouldPreview = submitAction === 'save_preview';
@@ -199,6 +198,47 @@ export default function ExchangeModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!customerName.trim() || !outProductId || !inProductData.brand.trim() || !inProductData.model.trim()) {
+      toast('Please select the outgoing product and enter the customer return product details', 'error');
+      return;
+    }
+
+    const outProd = productsList.find(p => p.id === outProductId);
+    if (!outProd || outProd.currentStock < 1) {
+      toast('Selected outgoing product is out of stock', 'error');
+      return;
+    }
+
+    // If Shop Pays Customer and money is paid out, check Drawer Balance
+    if (exchangeCase === 'Shop Pays Customer' && numPaid > 0 && ['Cash', 'Online'].includes(settlementMethod)) {
+      let available = 0;
+      let balCheckOk = false;
+      try {
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
+        if (balRes.success && balRes.data) {
+          available = settlementMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
+        }
+      } catch (err) {
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || numPaid > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: numPaid,
+          paymentMethod: settlementMethod
+        });
+        return;
+      }
+    }
+
+    await executeExchange();
   };
 
   return (
@@ -388,6 +428,17 @@ export default function ExchangeModal({
           )}
         </div>
       </form>
+
+      {/* Insufficient Drawer Balance Alert & Confirmation Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeExchange}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }

@@ -45,16 +45,22 @@ if (typeof window !== 'undefined') {
 
 async function apiRequest(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = BASE_URL.endsWith('/api') && cleanEndpoint.startsWith('/api/')
-    ? `${BASE_URL.slice(0, -4)}${cleanEndpoint}`
-    : `${BASE_URL}${cleanEndpoint}`;
-
-  const method = (options.method || 'GET').toUpperCase();
-  const isGet = method === 'GET';
   const noCache = options.noCache === true;
   const cacheTtl = options.cacheTtl || 15000; // 15 seconds client cache for GETs
 
-  // Cache key
+  // If noCache requested, append _t=timestamp to bust any HTTP/CDN cache (no custom header needed)
+  const endpointWithCache = noCache
+    ? `${cleanEndpoint}${cleanEndpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
+    : cleanEndpoint;
+
+  const url = BASE_URL.endsWith('/api') && endpointWithCache.startsWith('/api/')
+    ? `${BASE_URL.slice(0, -4)}${endpointWithCache}`
+    : `${BASE_URL}${endpointWithCache}`;
+
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+
+  // Cache key (always use base endpoint without timestamp)
   const cacheKey = `${cleanEndpoint}`;
 
   // If mutation, invalidate related cache keys
@@ -101,8 +107,11 @@ async function apiRequest(endpoint, options = {}) {
     }
   }
 
+  // Strip internal-only options so they are NOT sent to fetch (avoids CORS issues)
+  const { noCache: _nc, cacheTtl: _ct, ...fetchOptions } = options;
+
   const config = {
-    ...options,
+    ...fetchOptions,
     headers,
     credentials: options.credentials || 'include'
   };

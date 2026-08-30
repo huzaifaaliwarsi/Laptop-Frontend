@@ -123,8 +123,20 @@ export default function StockAdjustmentModal({
   const selectedVendor = vendors.find(v => v.id === vendorId || (vendorName && v.name === vendorName));
 
   // Payment calculations
-  const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
+  const numPaid = paidInput === '' ? totalCost : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
+  const remainingBalance = Math.max(0, totalCost - effectivePaid);
+
+  let paymentStatusType = 'unpaid';
+  if (totalCost > 0) {
+    if (effectivePaid >= totalCost) {
+      paymentStatusType = 'full';
+    } else if (effectivePaid > 0) {
+      paymentStatusType = 'partial';
+    } else {
+      paymentStatusType = 'unpaid';
+    }
+  }
 
   const finalReason = reasonPreset === '__custom__' ? customReason.trim() : reasonPreset;
 
@@ -177,24 +189,32 @@ export default function StockAdjustmentModal({
       return;
     }
 
-    // Check Drawer Balance if Stock IN with Vendor Payment
-    if (direction === 'IN' && (vendorId || vendorName) && effectivePaid > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
-      try {
-        const balRes = await api.get('/accounts/drawer-balance');
-        if (balRes.success && balRes.data) {
-          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
-          if (effectivePaid > available + 0.005) {
-            setBalanceWarningModal({
-              isOpen: true,
-              availableBalance: available,
-              requiredAmount: effectivePaid,
-              paymentMethod
-            });
-            return;
+    // Check Drawer Balance if Stock IN (Stock Purchase/Inward)
+    if (direction === 'IN' && totalCost > 0) {
+      const requiredAmount = paidInput === '0' ? 0 : (effectivePaid > 0 ? effectivePaid : totalCost);
+      if (requiredAmount > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+        let available = 0;
+        let balCheckOk = false;
+        try {
+          const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
+          if (balRes.success && balRes.data) {
+            available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+            balCheckOk = true;
           }
+        } catch (err) {
+          // API failed — treat available as 0 to force user confirmation
+          available = 0;
+          balCheckOk = false;
         }
-      } catch (err) {
-        console.warn('Could not verify drawer balance before stock adjustment:', err);
+        if (!balCheckOk || requiredAmount > available + 0.005) {
+          setBalanceWarningModal({
+            isOpen: true,
+            availableBalance: available,
+            requiredAmount,
+            paymentMethod
+          });
+          return;
+        }
       }
     }
 

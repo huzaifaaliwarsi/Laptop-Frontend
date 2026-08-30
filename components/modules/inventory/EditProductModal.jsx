@@ -165,7 +165,7 @@ export default function EditProductModal({
 
   const selectedVendor = vendors.find(v => v.id === formData.vendorId || (formData.vendorName && v.name === formData.vendorName));
 
-  const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
+  const numPaid = paidInput === '' ? totalCost : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
 
   let paymentStatusType = 'unpaid';
@@ -227,23 +227,29 @@ export default function EditProductModal({
     }
 
     // Check Drawer Balance before payment outflow
-    if (effectivePaid > 0 && (formData.vendorId || formData.vendorName) && ['Cash', 'Online'].includes(paymentMethod)) {
+    const requiredAmount = paidInput === '0' ? 0 : (effectivePaid > 0 ? effectivePaid : totalCost);
+    if (requiredAmount > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
       try {
-        const balRes = await api.get('/accounts/drawer-balance');
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
         if (balRes.success && balRes.data) {
-          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
-          if (effectivePaid > available + 0.005) {
-            setBalanceWarningModal({
-              isOpen: true,
-              availableBalance: available,
-              requiredAmount: effectivePaid,
-              paymentMethod
-            });
-            return;
-          }
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
         }
       } catch (err) {
-        console.warn('Could not verify drawer balance before updating product:', err);
+        // API failed — treat available as 0 to force user confirmation
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || requiredAmount > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount,
+          paymentMethod
+        });
+        return;
       }
     }
 

@@ -6,6 +6,7 @@ import QuickAddVendorModal from '../../common/QuickAddVendorModal';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
+import { notifyBalanceUpdated } from '../../../utils/formatters';
 
 export default function AddProductModal({
   isOpen,
@@ -178,7 +179,7 @@ export default function AddProductModal({
   const totalCost = (isNaN(qty) ? 1 : qty) * (isNaN(cost) ? 0 : cost);
 
   // Derive calculated paid amount from seller's direct input
-  const numPaid = paidInput === '' ? 0 : Math.max(0, parseFloat(paidInput) || 0);
+  const numPaid = paidInput === '' ? totalCost : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
   const remainingBalance = Math.max(0, totalCost - effectivePaid);
 
@@ -234,6 +235,7 @@ export default function AddProductModal({
       if (res.success) {
         toast(`Product ${res.data.code} saved successfully! ${formData.vendorId || formData.vendorName ? 'Vendor ledger updated.' : ''}`);
         setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
+        notifyBalanceUpdated();
         onClose();
         if (onSuccess) onSuccess(res.data);
       }
@@ -257,23 +259,30 @@ export default function AddProductModal({
     }
 
     // Check Drawer Balance before payment outflow
-    if (effectivePaid > 0 && (formData.vendorId || formData.vendorName) && ['Cash', 'Online'].includes(paymentMethod)) {
+    const requiredAmount = paidInput === '0' ? 0 : (effectivePaid > 0 ? effectivePaid : totalCost);
+    if (requiredAmount > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
       try {
-        const balRes = await api.get('/accounts/drawer-balance');
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
         if (balRes.success && balRes.data) {
-          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
-          if (effectivePaid > available + 0.005) {
-            setBalanceWarningModal({
-              isOpen: true,
-              availableBalance: available,
-              requiredAmount: effectivePaid,
-              paymentMethod
-            });
-            return;
-          }
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
         }
       } catch (err) {
-        console.warn('Could not verify drawer balance before saving product:', err);
+        // API failed (e.g. 401, network) — treat available as 0 to force confirmation
+        available = 0;
+        balCheckOk = false;
+      }
+      // Show warning if insufficient balance OR if we couldn't verify (safety block)
+      if (!balCheckOk || requiredAmount > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount,
+          paymentMethod
+        });
+        return;
       }
     }
 

@@ -1,23 +1,26 @@
 /**
- * Convert numerical monetary amount to words (Rupees format)
- * Example: 59.00 -> "Rupees fifty-nine and 00/100 only."
- * Example: 1250.75 -> "Rupees one thousand two hundred fifty and 75/100 only."
+ * Convert numerical monetary amount to clean, professional English words (Pakistani Rupees format)
+ * Examples:
+ *   3000    -> "Rupees Three Thousand Only."
+ *   3000.50 -> "Rupees Three Thousand and Fifty Paisas Only."
+ *   1250.75 -> "Rupees One Thousand Two Hundred Fifty and Seventy-Five Paisas Only."
+ *   0       -> "Rupees Zero Only."
  */
 
 const ONES = [
-  '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
-  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
-  'seventeen', 'eighteen', 'nineteen'
+  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+  'Seventeen', 'Eighteen', 'Nineteen'
 ];
 
 const TENS = [
-  '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'
+  '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
 ];
 
 function convertGroup(num) {
   let str = '';
   if (num >= 100) {
-    str += ONES[Math.floor(num / 100)] + ' hundred ';
+    str += ONES[Math.floor(num / 100)] + ' Hundred ';
     num %= 100;
   }
   if (num >= 20) {
@@ -33,7 +36,7 @@ function convertGroup(num) {
 export function amountInWordsPKR(amount) {
   const num = parseFloat(amount || 0);
   if (isNaN(num) || num === 0) {
-    return 'Rupees zero and 00/100 only.';
+    return 'Rupees Zero Only.';
   }
 
   const isNegative = num < 0;
@@ -50,22 +53,26 @@ export function amountInWordsPKR(amount) {
   const parts = [];
 
   if (billions > 0) {
-    parts.push(`${convertGroup(billions)} billion`);
+    parts.push(`${convertGroup(billions)} Billion`);
   }
   if (millions > 0) {
-    parts.push(`${convertGroup(millions)} million`);
+    parts.push(`${convertGroup(millions)} Million`);
   }
   if (thousands > 0) {
-    parts.push(`${convertGroup(thousands)} thousand`);
+    parts.push(`${convertGroup(thousands)} Thousand`);
   }
   if (remainder > 0) {
     parts.push(convertGroup(remainder));
   }
 
-  const words = parts.length > 0 ? parts.join(' ') : 'zero';
-  const paisaStr = String(decimalPart).padStart(2, '0');
+  const words = parts.length > 0 ? parts.join(' ') : 'Zero';
+  
+  if (decimalPart > 0) {
+    const paisaWords = convertGroup(decimalPart);
+    return `${isNegative ? 'Minus ' : ''}Rupees ${words} and ${paisaWords} Paisas Only.`;
+  }
 
-  return `${isNegative ? 'Minus ' : ''}Rupees ${words} and ${paisaStr}/100 only.`;
+  return `${isNegative ? 'Minus ' : ''}Rupees ${words} Only.`;
 }
 
 export default amountInWordsPKR;

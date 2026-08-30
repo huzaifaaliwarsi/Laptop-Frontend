@@ -65,7 +65,7 @@ export default function InvoicePreviewModal({
               className="btn danger"
               onClick={() => onVoidSale(invoice)}
             >
-              Void / Return
+              Void / Return Sale
             </button>
           )}
           {invoice.type === 'Vendor Purchase' && !invoice.isVoided && onVendorReturn && (
@@ -75,6 +75,24 @@ export default function InvoicePreviewModal({
               onClick={() => onVendorReturn(invoice)}
             >
               Return / Refund to Vendor
+            </button>
+          )}
+          {invoice.type === 'Customer Purchase' && !invoice.isVoided && onVoidSale && (
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => onVoidSale(invoice)}
+            >
+              Void / Revert Buyback
+            </button>
+          )}
+          {(invoice.type === 'Exchange Invoice' || invoice.type === 'Product Exchange') && !invoice.isVoided && onVoidSale && (
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => onVoidSale(invoice)}
+            >
+              Void / Revert Exchange
             </button>
           )}
         </div>

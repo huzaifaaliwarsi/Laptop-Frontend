@@ -138,3 +138,13 @@ export function getTransactionConfig(type = '', invoice = {}) {
     theme: 'primary'
   };
 }
+
+/**
+ * Fire a global event so any balance display widget auto-refreshes
+ * Call this after every successful financial transaction (purchase, expense, sale, etc.)
+ */
+export function notifyBalanceUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('app:balance-updated'));
+  }
+}

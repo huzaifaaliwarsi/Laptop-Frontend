@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Printer } from 'lucide-react';
 import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -27,6 +28,14 @@ export default function CustomerPurchaseModal({
   const [paid, setPaid] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitAction, setSubmitAction] = useState('save_preview');
+
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
 
   const [productData, setProductData] = useState({
     category: 'Laptop',
@@ -60,6 +69,7 @@ export default function CustomerPurchaseModal({
       setPaid('');
       setReferenceId('');
       setDate(new Date().toISOString().split('T')[0]);
+      setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
       setProductData({
         category: 'Laptop',
         brand: '',
@@ -91,13 +101,7 @@ export default function CustomerPurchaseModal({
   const numPaid = paid === '' ? totalCost : parseFloat(paid || 0);
   const balance = Math.max(0, totalCost - numPaid);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!customerName.trim() || !productData.brand.trim() || !productData.model.trim() || totalCost <= 0) {
-      toast('Please fill all required customer and product fields', 'error');
-      return;
-    }
-
+  const executeCustomerPurchase = async () => {
     const productObj = {
       category: productData.category || 'Laptop',
       categoryName: productData.category || 'Laptop',
@@ -143,6 +147,7 @@ export default function CustomerPurchaseModal({
       const res = await api.post('/pos/customer-purchase', payload);
       if (res.success) {
         toast('Customer Purchase invoice created & stock added to inventory!');
+        setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
         onClose();
         if (onSuccess) {
           const shouldPreview = submitAction === 'save_preview';
@@ -154,6 +159,41 @@ export default function CustomerPurchaseModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!customerName.trim() || !productData.brand.trim() || !productData.model.trim() || totalCost <= 0) {
+      toast('Please fill all required customer and product fields', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before payment outflow
+    if (numPaid > 0 && ['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
+      try {
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
+        if (balRes.success && balRes.data) {
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
+        }
+      } catch (err) {
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || numPaid > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: numPaid,
+          paymentMethod
+        });
+        return;
+      }
+    }
+
+    await executeCustomerPurchase();
   };
 
   return (
@@ -280,6 +320,17 @@ export default function CustomerPurchaseModal({
           </div>
         </div>
       </form>
+
+      {/* Insufficient Drawer Balance Alert & Confirmation Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeCustomerPurchase}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }

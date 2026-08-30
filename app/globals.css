@@ -2547,14 +2547,28 @@ table.data-table tbody tr:hover {
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
+    min-height: 100% !important;
     overflow: visible !important;
     font-size: 9.5pt;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Hide entire application shell, modals backdrop & buttons */
+  /* Keep app shell structure visible but strip layout constraints */
   .app,
+  .shell,
+  .content {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Hide navigation, sidebars, buttons, toolbars, overlays and toasts */
   .sidebar,
   .topbar,
   .modal-head,
@@ -2569,6 +2583,11 @@ table.data-table tbody tr:hover {
     display: none !important;
   }
 
+  /* When printing an open modal, hide background page content */
+  body:has(.modal-backdrop.open) .content > *:not(.modal-backdrop):not(:has(.modal-backdrop)) {
+    display: none !important;
+  }
+
   /* Modal container reset for clean full-page print */
   .modal-backdrop.open {
     position: static !important;
@@ -2580,6 +2599,8 @@ table.data-table tbody tr:hover {
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
+    inset: auto !important;
+    z-index: auto !important;
   }
 
   .modal {
@@ -2604,7 +2625,8 @@ table.data-table tbody tr:hover {
   }
 
   /* Full Page Print Container */
-  .std-invoice-paper {
+  .std-invoice-paper,
+  #printableInvoice {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 auto !important;
@@ -2988,51 +3010,7 @@ table.data-table tbody tr:hover {
   }
 }
 
-@media print {
-  body {
-    background-color: #fff !important;
-  }
-
-  .app,
-  .sidebar,
-  .topbar,
-  .modal-head,
-  .modal-foot,
-  .no-print,
-  .toast-wrap,
-  .mobile-overlay {
-    display: none !important;
-  }
-
-  .invoice-preview-backdrop.open {
-    display: block;
-    position: static;
-    background-color: #fff;
-    padding: 0;
-  }
-
-  .invoice-preview-container {
-    width: 100%;
-  }
-
-  .invoice-premium {
-    box-shadow: none;
-    border: 0;
-    border-radius: 0;
-    padding: 0;
-  }
-
-  .invoice-premium-header,
-  .invoice-premium thead th,
-  .invoice-total-row.grand {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .invoice-action-footer {
-    display: none !important;
-  }
-}
+/* End of print rules */
 
 /* =========================================
    LOGIN SPLIT SCREEN

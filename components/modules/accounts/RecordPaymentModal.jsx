@@ -5,6 +5,7 @@ import Modal from '../../common/Modal';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
+import { notifyBalanceUpdated } from '../../../utils/formatters';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -64,6 +65,7 @@ export default function RecordPaymentModal({
       if (res.success) {
         toast('Payment installment recorded & balance updated!');
         setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
+        notifyBalanceUpdated();
         onClose();
         if (onSuccess) onSuccess();
       }
@@ -87,22 +89,26 @@ export default function RecordPaymentModal({
 
     // If making payment OUT to vendor, check drawer balance
     if (!isReceivable && ['Cash', 'Online'].includes(paymentMethod)) {
+      let available = 0;
+      let balCheckOk = false;
       try {
-        const balRes = await api.get('/accounts/drawer-balance');
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
         if (balRes.success && balRes.data) {
-          const available = paymentMethod === 'Cash' ? balRes.data.cash : balRes.data.online;
-          if (payAmount > available + 0.005) {
-            setBalanceWarningModal({
-              isOpen: true,
-              availableBalance: available,
-              requiredAmount: payAmount,
-              paymentMethod
-            });
-            return;
-          }
+          available = paymentMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
         }
       } catch (err) {
-        console.warn('Could not verify drawer balance before paying vendor:', err);
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || payAmount > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: payAmount,
+          paymentMethod
+        });
+        return;
       }
     }
 

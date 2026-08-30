@@ -11,7 +11,8 @@ export default function Modal({
   children,
   footer,
   wide = false,
-  isInvoice = false
+  isInvoice = false,
+  zIndex
 }) {
   const { toast } = useToast();
 
@@ -40,6 +41,7 @@ export default function Modal({
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
+      style={zIndex ? { zIndex } : undefined}
     >
       <div className={`modal ${wide ? 'wide' : ''}`}>
         <div className="modal-head">
