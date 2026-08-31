@@ -3,7 +3,31 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import { Trash2, Loader2, RefreshCw, Wallet, Landmark, PlusCircle, MinusCircle, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { 
+  Trash2, 
+  Loader2, 
+  RefreshCw, 
+  Wallet, 
+  Landmark, 
+  PlusCircle, 
+  MinusCircle, 
+  History, 
+  ArrowDownLeft, 
+  ArrowUpRight,
+  Building2,
+  Sliders,
+  Wrench,
+  Smartphone,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Layers,
+  ShieldAlert,
+  SlidersHorizontal,
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import { notifyBalanceUpdated } from '../../utils/formatters';
@@ -279,7 +303,10 @@ export default function SettingsPage() {
         <div className="panel" style={{ marginTop: 0 }}>
           <div className="panel-head">
             <div>
-              <h3>Company Branding & Invoice Customization</h3>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Building2 size={18} className="text-blue-600" />
+                <span>Company Branding & Invoice Customization</span>
+              </h3>
               <p>Logo, shop details and invoice header/footer settings</p>
             </div>
           </div>
@@ -406,7 +433,10 @@ export default function SettingsPage() {
           <div className="panel" style={{ marginTop: 0 }}>
             <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div>
-                <h3>Cash Drawer & Financial Treasury</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Wallet size={18} className="text-emerald-600" />
+                  <span>Cash Drawer & Financial Treasury</span>
+                </h3>
                 <p>Live cash drawer management, top-ups, withdrawals & baseline capital</p>
               </div>
               <button
@@ -487,8 +517,18 @@ export default function SettingsPage() {
                 marginBottom: 14
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>
-                    {drawerAction === 'Deposit' ? '💰 Deposit / Add Funds' : '💸 Withdraw Funds'}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#334155', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {drawerAction === 'Deposit' ? (
+                      <>
+                        <ArrowDownLeft size={15} className="text-emerald-600" />
+                        <span>Deposit / Add Funds</span>
+                      </>
+                    ) : (
+                      <>
+                        <ArrowUpRight size={15} className="text-rose-600" />
+                        <span>Withdraw Funds</span>
+                      </>
+                    )}
                   </span>
                   <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: 6, padding: 2, gap: 2 }}>
                     <button
@@ -497,15 +537,18 @@ export default function SettingsPage() {
                         border: 'none',
                         background: drawerAction === 'Deposit' ? '#16a34a' : 'transparent',
                         color: drawerAction === 'Deposit' ? '#fff' : '#475569',
-                        padding: '2px 8px',
+                        padding: '3px 10px',
                         borderRadius: 4,
                         fontSize: 11,
                         fontWeight: 700,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
                       }}
                       onClick={() => setDrawerAction('Deposit')}
                     >
-                      + Deposit
+                      <PlusCircle size={12} /> Deposit
                     </button>
                     <button
                       type="button"
@@ -513,15 +556,18 @@ export default function SettingsPage() {
                         border: 'none',
                         background: drawerAction === 'Withdrawal' ? '#dc2626' : 'transparent',
                         color: drawerAction === 'Withdrawal' ? '#fff' : '#475569',
-                        padding: '2px 8px',
+                        padding: '3px 10px',
                         borderRadius: 4,
                         fontSize: 11,
                         fontWeight: 700,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
                       }}
                       onClick={() => setDrawerAction('Withdrawal')}
                     >
-                      - Withdraw
+                      <MinusCircle size={12} /> Withdraw
                     </button>
                   </div>
                 </div>
@@ -600,18 +646,21 @@ export default function SettingsPage() {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                   onClick={() => setShowStartingCapital(!showStartingCapital)}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>
-                    ⚙️ Day 1 Starting Baseline Capital Setup
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <SlidersHorizontal size={14} className="text-slate-500" />
+                    <span>Day 1 Starting Baseline Capital Setup</span>
                   </span>
-                  <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
-                    {showStartingCapital ? 'Hide ▲' : 'Edit Baseline ▼'}
+                  <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span>{showStartingCapital ? 'Hide' : 'Edit Baseline'}</span>
+                    {showStartingCapital ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </span>
                 </div>
 
                 {showStartingCapital && (
                   <form onSubmit={handleSaveBalances} style={{ marginTop: 12, borderTop: '1px dashed #cbd5e1', paddingTop: 10 }}>
-                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>
-                      ℹ️ Baseline capital represents Day 1 store opening funds. (For daily additions or top-ups, use the "+ Deposit / Add" form above).
+                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Info size={13} className="text-blue-500 flex-shrink-0" />
+                      <span>Baseline capital represents Day 1 store opening funds. (For daily additions or top-ups, use the "+ Deposit / Add" form above).</span>
                     </div>
                     <div className="form-grid">
                       <div className="field span-6">
@@ -696,15 +745,19 @@ export default function SettingsPage() {
           <div className="panel" style={{ marginTop: 0 }}>
             <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div>
-                <h3>Repair Job Categories</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Wrench size={18} className="text-blue-600" />
+                  <span>Repair Job Categories</span>
+                </h3>
                 <p>Manage device intake categories stored in PostgreSQL database</p>
               </div>
               <button
                 type="button"
                 className="btn small soft"
                 onClick={() => setIsRepairCatModalOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                <Icon name="settings" /> Full Category Manager
+                <Layers size={13} /> Full Category Manager
               </button>
             </div>
             <div className="panel-body">
@@ -793,7 +846,10 @@ export default function SettingsPage() {
           <div className="card">
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Workshop Repair Spare Parts Inventory</h4>
+                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Package size={17} className="text-blue-600" />
+                  <span>Workshop Repair Spare Parts Inventory</span>
+                </h4>
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>
                   Manage spare parts catalog (Screens, Batteries, Keyboards, ICs, Ports, RAM & SSD) separate from retail products.
                 </p>
@@ -802,8 +858,9 @@ export default function SettingsPage() {
                 type="button"
                 className="btn primary"
                 onClick={() => setIsPartsModalOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                <Icon name="package" /> Open Spare Parts Manager
+                <Package size={14} /> Open Spare Parts Manager
               </button>
             </div>
           </div>
@@ -814,7 +871,10 @@ export default function SettingsPage() {
       <div className="panel" style={{ marginTop: 14 }}>
         <div className="panel-head">
           <div>
-            <h3>WhatsApp Business & Automation Settings</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Smartphone size={18} className="text-emerald-600" />
+              <span>WhatsApp Business & Automation Settings</span>
+            </h3>
             <p>Automated chat bot menus and repair tracking triggers</p>
           </div>
         </div>
@@ -907,11 +967,11 @@ export default function SettingsPage() {
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <Trash2 size={22} />
+              <ShieldAlert size={22} />
             </div>
             <div>
-              <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#991b1b' }}>
-                Danger Zone: Factory Database Reset
+              <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Danger Zone: Factory Database Reset</span>
               </h4>
               <p style={{ margin: 0, fontSize: 12.5, color: '#7f1d1d', lineHeight: 1.5 }}>
                 Permanently erase all transactional records, customer/vendor ledgers, repair jobs, and invoices to start fresh. Preserves admin logins and company settings.

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Wallet, Landmark, TrendingUp, TrendingDown } from 'lucide-react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
@@ -77,13 +78,15 @@ const TABS = [
   { key: 'overview',        label: 'Overview',           adminOnly: false },
   { key: 'sales',           label: 'Sales',              adminOnly: false },
   { key: 'purchases',       label: 'Purchases',          adminOnly: true  },
+  { key: 'vendor-returns',  label: 'Vendor Returns',     adminOnly: true  },
   { key: 'cash-online',     label: 'Cash & Online',      adminOnly: true  },
   { key: 'accounts',        label: 'Accounts',           adminOnly: true  },
-  { key: 'inventory',       label: 'Inventory & COGS',   adminOnly: true  },
+  { key: 'inventory',       label: 'Retail Inventory',   adminOnly: true  },
+  { key: 'spare-parts',     label: 'Workshop Spare Parts', adminOnly: true },
   { key: 'profit-loss',     label: 'Profit & Loss',      adminOnly: true  },
   { key: 'repairs',         label: 'Repair Operations',  adminOnly: false },
   { key: 'expenses',        label: 'Expenses',           adminOnly: true  },
-  { key: 'voids-returns',   label: 'Voids & Returns',    adminOnly: true  },
+  { key: 'voids-returns',   label: 'Customer Returns',   adminOnly: true  },
 ];
 
 // =============================================================================
@@ -175,8 +178,16 @@ export default function ReportsPage() {
         const r = await api.get(`/reports/purchases${q}`);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
+      } else if (activeTab === 'vendor-returns') {
+        const r = await api.get(`/reports/vendor-returns${q}`);
+        if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
+
       } else if (activeTab === 'inventory') {
         const r = await api.get(`/reports/inventory${q}`);
+        if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
+
+      } else if (activeTab === 'spare-parts') {
+        const r = await api.get(`/reports/spare-parts${q}`);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'repairs') {
@@ -194,7 +205,16 @@ export default function ReportsPage() {
   useEffect(() => { loadReport(); }, [loadReport]);
 
   const downloadCSV = () => {
-    const map = { sales: 'sales', purchases: 'purchases', inventory: 'inventory', repairs: 'repairs', expenses: 'expenses', 'voids-returns': 'returns' };
+    const map = {
+      sales: 'sales',
+      purchases: 'purchases',
+      'vendor-returns': 'vendor-returns',
+      inventory: 'inventory',
+      'spare-parts': 'spare-parts',
+      repairs: 'repairs',
+      expenses: 'expenses',
+      'voids-returns': 'returns'
+    };
     const csvType = map[activeTab];
     if (!csvType) return;
     const qs = buildQS();
@@ -208,7 +228,7 @@ export default function ReportsPage() {
       }).catch(console.error);
   };
 
-  const showCSV = ['sales', 'purchases', 'inventory', 'repairs', 'expenses', 'voids-returns'].includes(activeTab);
+  const showCSV = ['sales', 'purchases', 'vendor-returns', 'inventory', 'spare-parts', 'repairs', 'expenses', 'voids-returns'].includes(activeTab);
 
   // =============================================================================
   // RENDER
@@ -428,6 +448,57 @@ export default function ReportsPage() {
         )}
 
         {/* ============================================================
+            VENDOR RETURNS TAB
+        ============================================================ */}
+        {activeTab === 'vendor-returns' && (
+          <>
+            {tableSummary && (
+              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
+                <KPICard label="Total Returns" value={tableSummary.count || 0} sub="Items returned to suppliers" />
+                <KPICard label="Total Return Value" value={money(tableSummary.totalReturned)} accent="#dc2626" sub="Stock cost credit" />
+                <KPICard label="Cash / Online Refunded" value={money(tableSummary.totalCashReceived)} accent="#16a34a" sub="Money received back" />
+                <KPICard label="Exchange & Payable Cuts" value={money((tableSummary.totalExchangeValue || 0) + (tableSummary.totalPayableAdjustment || 0))} accent="#2563eb" sub="Replacements & ledger offset" />
+              </div>
+            )}
+            <ReportTable loading={loading} cols={[
+              { label: 'Return ID', key: 'id', bold: true },
+              { label: 'Date', key: 'date', fmt: fmtDate },
+              { label: 'Vendor', key: 'vendorName' },
+              { label: 'Product', key: 'productCode', render: (v, row) => (
+                <div>
+                  <strong>{v}</strong>
+                  {row.productName && <div style={{ fontSize: 11, color: '#64748b' }}>{row.productName}</div>}
+                </div>
+              )},
+              { label: 'Qty', key: 'quantity', right: true },
+              { label: 'Return Amount', key: 'amount', right: true, fmt: money, color: '#dc2626', bold: true },
+              { label: 'Settlement', key: 'settlementMethod', render: v => (
+                <span style={{
+                  fontSize: 10.5,
+                  padding: '2px 7px',
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  background: v?.includes('Cash') || v?.includes('Online') ? '#dcfce7' : v?.includes('Exchange') ? '#dbeafe' : '#fef3c7',
+                  color: v?.includes('Cash') || v?.includes('Online') ? '#166534' : v?.includes('Exchange') ? '#1e40af' : '#92400e'
+                }}>
+                  {v}
+                </span>
+              )},
+              { label: 'Money Refunded', key: 'actualMoneyReceived', right: true, fmt: money, color: '#16a34a' },
+              { label: 'Replacement Product', key: 'replacementProduct', render: (v, row) => v ? (
+                <span style={{ fontSize: 11, color: '#1e40af' }}>
+                  {v} {row.replacementQty ? `(x${row.replacementQty})` : ''}
+                </span>
+              ) : <span style={{ color: '#94a3b8' }}>—</span> },
+              { label: 'Payable Adj.', key: 'payableAdjustment', right: true, fmt: money, color: '#2563eb' },
+              { label: 'Status', key: 'status', render: v => <SBadge status={v} /> },
+              { label: 'Reason', key: 'reason', muted: true },
+              { label: 'Recorded By', key: 'createdBy', muted: true },
+            ]} data={tableData} emptyMsg="No vendor returns found for this period." />
+          </>
+        )}
+
+        {/* ============================================================
             CASH & ONLINE TAB
         ============================================================ */}
         {activeTab === 'cash-online' && (
@@ -442,8 +513,26 @@ export default function ReportsPage() {
                   <KPICard label="Total Liquidity" value={money(cashData.totalLiquidity)} accent="#16a34a" sub="Cash + Online" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <FlowBox title="💵 Cash Flow" data={cashData.cash} color="#16a34a" />
-                  <FlowBox title="🏦 Online Flow" data={cashData.online} color="#2563eb" />
+                  <FlowBox
+                    title={
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Wallet size={15} className="text-emerald-600" />
+                        <span>Cash Flow</span>
+                      </span>
+                    }
+                    data={cashData.cash}
+                    color="#16a34a"
+                  />
+                  <FlowBox
+                    title={
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Landmark size={15} className="text-blue-600" />
+                        <span>Online Flow</span>
+                      </span>
+                    }
+                    data={cashData.online}
+                    color="#2563eb"
+                  />
                 </div>
               </>
             ) : <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>No data.</div>}
@@ -495,6 +584,40 @@ export default function ReportsPage() {
         )}
 
         {/* ============================================================
+            WORKSHOP SPARE PARTS TAB
+        ============================================================ */}
+        {activeTab === 'spare-parts' && (
+          <>
+            {tableSummary && (
+              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
+                <KPICard label="Catalog Parts" value={tableSummary.totalParts} sub={`${tableSummary.totalStockUnits} workshop units on hand`} />
+                <KPICard label="Spare Parts Stock Value" value={money(tableSummary.totalCostValue)} accent="#dc2626" sub="In-stock units × cost price" />
+                <KPICard label="Jobs Revenue Generated" value={money(tableSummary.totalRevenueGenerated)} accent="#2563eb" sub={`${tableSummary.totalUsedUnits} units issued to repair jobs`} />
+                <KPICard label="Gross Workshop Margin" value={money(tableSummary.totalPartProfit)} accent="#16a34a" sub="Revenue − Parts COGS" />
+              </div>
+            )}
+            <ReportTable loading={loading} cols={[
+              { label: 'Part SKU', key: 'code', bold: true, small: true },
+              { label: 'Category', key: 'category', render: v => <span className="badge" style={{ fontSize: 11 }}>{v}</span> },
+              { label: 'Part Name', key: 'name', bold: true },
+              { label: 'Compatible Models', key: 'compatibleModels', muted: true },
+              { label: 'On Hand', key: 'currentStock', right: true, bold: true, colorFn: v => v <= 2 ? '#dc2626' : '#15803d' },
+              { label: 'Issued to Jobs', key: 'usedUnits', right: true, color: '#2563eb', bold: true },
+              { label: 'Cost Price', key: 'costPrice', right: true, fmt: money },
+              { label: 'Stock Value', key: 'stockCostValue', right: true, fmt: money, color: '#dc2626' },
+              { label: 'Customer Price', key: 'sellingPrice', right: true, fmt: money },
+              { label: 'Revenue Billed', key: 'revenueGenerated', right: true, fmt: money, color: '#2563eb' },
+              { label: 'Profit Earned', key: 'profitEarned', right: true, fmt: money, color: '#16a34a', bold: true },
+              { label: 'Status', key: 'status', render: (v, row) => (
+                <span className={`badge ${row.currentStock === 0 ? 'danger' : row.isLowStock ? 'warning' : 'success'}`}>
+                  {row.currentStock === 0 ? 'Out of Stock' : row.isLowStock ? 'Low Stock' : 'In Stock'}
+                </span>
+              )}
+            ]} data={tableData} emptyMsg="No spare parts found." />
+          </>
+        )}
+
+        {/* ============================================================
             PROFIT & LOSS TAB
         ============================================================ */}
         {activeTab === 'profit-loss' && (
@@ -513,7 +636,7 @@ export default function ReportsPage() {
                 </div>
                 {/* Detail boxes */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <PnLBox title="📈 Revenue Breakdown" rows={[
+                  <PnLBox icon={<TrendingUp size={15} color="#16a34a" />} title="Revenue Breakdown" rows={[
                     { label: 'Gross Retail Product Sales', value: money(pnlData.grossProductSales) },
                     pnlData.voidedProductSales > 0 && { label: 'Less: Voided Sales', value: `−${money(pnlData.voidedProductSales)}`, color: '#dc2626' },
                     pnlData.partialReturnAdj > 0 && { label: 'Less: Partial Returns', value: `−${money(pnlData.partialReturnAdj)}`, color: '#dc2626' },
@@ -524,7 +647,7 @@ export default function ReportsPage() {
                     pnlData.customSaleRevenue > 0 && { label: 'Custom Sale Revenue', value: money(pnlData.customSaleRevenue) },
                     { label: 'Total Net Operating Revenue', value: money(pnlData.totalRevenue), bold: true, total: true },
                   ].filter(Boolean)} />
-                  <PnLBox title="📉 COGS & Expenses" rows={[
+                  <PnLBox icon={<TrendingDown size={15} color="#dc2626" />} title="COGS & Expenses" rows={[
                     { label: 'Retail Inventory COGS', value: money(pnlData.retailCogs) },
                     pnlData.voidedCogs > 0 && { label: 'Less: COGS Reversed (Voids)', value: `−${money(pnlData.voidedCogs)}`, color: '#16a34a' },
                     { label: 'Net Retail COGS', value: money(pnlData.netRetailCogs), bold: true },
@@ -708,10 +831,11 @@ function FlowBox({ title, data, color }) {
 }
 
 /** P&L detail breakdown box */
-function PnLBox({ title, rows }) {
+function PnLBox({ title, icon, rows }) {
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+      <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {icon}
         <strong style={{ fontSize: 13 }}>{title}</strong>
       </div>
       {rows.map((r, i) => (

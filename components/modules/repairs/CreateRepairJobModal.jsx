@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Info } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
@@ -904,8 +905,9 @@ export default function CreateRepairJobModal({
                   </div>
 
                   <div className="field span-12" style={{ marginTop: 4 }}>
-                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--muted)', lineHeight: '1.4' }}>
-                      ℹ️ <strong>Diagnosis Policy:</strong> Hardware repair charges are determined after technician inspection on the workbench. The customer will receive a formal quotation for approval before any repair work or parts consumption begins.
+                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--muted)', lineHeight: '1.4', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Info size={14} className="text-blue-500 flex-shrink-0" />
+                      <span><strong>Diagnosis Policy:</strong> Hardware repair charges are determined after technician inspection on the workbench. The customer will receive a formal quotation for approval before any repair work or parts consumption begins.</span>
                     </p>
                   </div>
                 </div>

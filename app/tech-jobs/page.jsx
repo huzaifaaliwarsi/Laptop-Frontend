@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Wrench, Stethoscope } from 'lucide-react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import TechJobModal from '../../components/modules/repairs/TechJobModal';
@@ -14,6 +15,7 @@ export default function TechJobsPage() {
   const [jobs, setJobs] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(null);
 
@@ -22,6 +24,7 @@ export default function TechJobsPage() {
     let url = '/repairs?';
     if (search) url += `search=${encodeURIComponent(search)}&`;
     if (statusFilter) url += `status=${encodeURIComponent(statusFilter)}&`;
+    if (jobTypeFilter) url += `jobType=${encodeURIComponent(jobTypeFilter)}&`;
 
     api.get(url)
       .then(res => {
@@ -37,14 +40,14 @@ export default function TechJobsPage() {
 
   useEffect(() => {
     loadJobs();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, jobTypeFilter]);
 
   return (
     <>
       <div className="panel" style={{ marginTop: 0 }}>
         <div className="panel-head">
           <div className="toolbar" style={{ width: '100%', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+            <div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
               <input
                 className="input search"
                 style={{ maxWidth: 320 }}
@@ -52,6 +55,16 @@ export default function TechJobsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <select
+                className="select"
+                style={{ width: 170 }}
+                value={jobTypeFilter}
+                onChange={(e) => setJobTypeFilter(e.target.value)}
+              >
+                <option value="">All Job Types</option>
+                <option value="Service Job">Service Jobs</option>
+                <option value="Diagnosis Job">Diagnosis Jobs</option>
+              </select>
               <select
                 className="select"
                 style={{ width: 200 }}
@@ -77,10 +90,10 @@ export default function TechJobsPage() {
               <thead>
                 <tr>
                   <th>Tracking ID</th>
+                  <th>Job Type</th>
                   <th>Category</th>
                   <th>Customer</th>
                   <th>Device / Problem</th>
-                  <th>Job Type</th>
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Progress</th>
@@ -95,6 +108,35 @@ export default function TechJobsPage() {
                   jobs.map((j) => (
                     <tr key={j.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedJobId(j.id)}>
                       <td><strong>{j.trackingId}</strong></td>
+                      <td>
+                        {j.jobType === 'Service Job' ? (
+                          <span className="badge" style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <Wrench size={10} /> Service
+                          </span>
+                        ) : (
+                          <span className="badge" style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: '#fffbeb',
+                            color: '#b45309',
+                            border: '1px solid #fde68a',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <Stethoscope size={10} /> Diagnosis
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <span style={{
                           fontSize: 11,
@@ -116,7 +158,6 @@ export default function TechJobsPage() {
                         <div>{[j.brand, j.model].filter(Boolean).join(' ') || j.categoryName || 'Device'}</div>
                         <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{j.problem}</div>
                       </td>
-                      <td><span style={{ fontSize: 10, fontWeight: 700 }}>{j.jobType}</span></td>
                       <td>
                         <span className={`badge ${j.priority === 'Urgent' ? 'danger' : 'warning'}`}>
                           {j.priority}

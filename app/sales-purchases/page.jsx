@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Eye, ArrowDownLeft, ArrowUpRight, Ban } from 'lucide-react';
+import { RotateCcw, Eye, ArrowDownLeft, ArrowUpRight, Ban, Wallet, PlusCircle } from 'lucide-react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
 import VendorReturnModal from '../../components/modules/inventory/VendorReturnModal';
 import SalesReturnModal from '../../components/modules/pos/SalesReturnModal';
+import CashDrawerModal from '../../components/modules/pos/CashDrawerModal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +37,7 @@ export default function SalesPurchasesPage() {
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [vendorReturnProduct, setVendorReturnProduct] = useState(null);
   const [salesReturnInvoice, setSalesReturnInvoice] = useState(null);
+  const [isCashDrawerOpen, setIsCashDrawerOpen] = useState(false);
 
   const loadInvoices = () => {
     setLoading(true);
@@ -210,6 +212,16 @@ export default function SalesPurchasesPage() {
               onChange={(e) => setToDate(e.target.value)}
               placeholder="To Date"
             />
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                className="btn primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}
+                onClick={() => setIsCashDrawerOpen(true)}
+              >
+                <Wallet size={14} /> + Cash Drawer / Add Cash
+              </button>
+            </div>
           </div>
         </div>
 
@@ -241,10 +253,10 @@ export default function SalesPurchasesPage() {
                       style={{ cursor: 'pointer', opacity: inv.isVoided ? 0.75 : 1 }}
                       onClick={() => handleOpenInvoice(inv.id)}
                     >
-                      <td><strong>{inv.invoiceNo}</strong></td>
+                      <td><strong>{inv.invoiceNo || inv.invoice_no || inv.id}</strong></td>
                       <td>{inv.type}</td>
                       <td>
-                        <strong>{inv.partyName}</strong>
+                        <strong>{inv.partyName || inv.party_name}</strong>
                         {inv.contact && <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{inv.contact}</div>}
                       </td>
                       <td>{fmtDate(inv.date)}</td>
@@ -359,6 +371,12 @@ export default function SalesPurchasesPage() {
           }}
         />
       )}
+
+      {/* Cash Drawer & Counter Top-up Modal */}
+      <CashDrawerModal
+        isOpen={isCashDrawerOpen}
+        onClose={() => setIsCashDrawerOpen(false)}
+      />
     </>
   );
 }

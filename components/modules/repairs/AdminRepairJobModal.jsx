@@ -27,6 +27,7 @@ export default function AdminRepairJobModal({
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [technicians, setTechnicians] = useState([]);
+  const [additionalWorkRequests, setAdditionalWorkRequests] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [editStatus, setEditStatus] = useState('');
@@ -39,8 +40,9 @@ export default function AdminRepairJobModal({
     setLoading(true);
     Promise.all([
       api.get(`/repairs/${jobId}`),
-      api.get('/staff?role=technician')
-    ]).then(([jRes, tRes]) => {
+      api.get('/staff?role=technician'),
+      api.get(`/repairs/${jobId}/additional-work`)
+    ]).then(([jRes, tRes, aRes]) => {
       if (jRes.success && jRes.data) {
         setJob(jRes.data);
         setEditStatus(jRes.data.status);
@@ -49,6 +51,7 @@ export default function AdminRepairJobModal({
         setAdminNote('');
       }
       if (tRes.success) setTechnicians(tRes.data || []);
+      if (aRes.success) setAdditionalWorkRequests(aRes.data || []);
     }).catch(console.error)
     .finally(() => setLoading(false));
   };
@@ -70,7 +73,7 @@ export default function AdminRepairJobModal({
   if (!job) return null;
 
   const isDiagnosis = job.jobType === 'Diagnosis Job' || job.originJobType === 'Diagnosis Job';
-  const canApprove = job.status === 'Waiting for Customer Approval' || job.approvalStatus === 'Pending';
+  const canApprove = isDiagnosis && job.status === 'Waiting for Customer Approval' && job.approvalStatus !== 'Approved' && parseFloat(job.quotationAmount || 0) > 0;
   const isDelivered = job.status === 'Delivered & Closed';
 
   const handleApproveQuote = async () => {
@@ -98,6 +101,38 @@ export default function AdminRepairJobModal({
       }
     } catch (err) {
       toast(err.message || 'Error declining quotation', 'error');
+    }
+  };
+
+  const handleApproveAdditionalWork = async (requestId, amount) => {
+    if (!confirm(`Approve additional work request (+ PKR ${amount}) on behalf of customer?`)) return;
+    try {
+      const res = await api.post(`/repairs/${job.id}/additional-work/${requestId}/approve`, {
+        customerResponse: 'Approved manually by Admin/Sales via phone confirmation'
+      });
+      if (res.success) {
+        toast('Additional work request approved and added to job!');
+        loadJob();
+        if (onSuccess) onSuccess();
+      }
+    } catch (err) {
+      toast(err.message || 'Error approving additional work', 'error');
+    }
+  };
+
+  const handleDeclineAdditionalWork = async (requestId) => {
+    if (!confirm('Decline additional work request? No additional charges will be added.')) return;
+    try {
+      const res = await api.post(`/repairs/${job.id}/additional-work/${requestId}/decline`, {
+        customerResponse: 'Declined manually by Admin/Sales via phone confirmation'
+      });
+      if (res.success) {
+        toast('Additional work request declined.');
+        loadJob();
+        if (onSuccess) onSuccess();
+      }
+    } catch (err) {
+      toast(err.message || 'Error declining additional work', 'error');
     }
   };
 
@@ -186,43 +221,135 @@ export default function AdminRepairJobModal({
         </>
       }
     >
-      <div className="repair-finance-band" style={{ marginBottom: 14 }}>
-        <div className="repair-finance-card">
-          <span>Current Status</span>
-          <strong>{job.status}</strong>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+        gap: 12,
+        marginBottom: 16
+      }}>
+        <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Job Type</span>
+          <span className={`badge ${isDiagnosis ? 'purple' : 'info'}`} style={{ fontWeight: 700, fontSize: 12 }}>
+            {job.jobType}
+          </span>
         </div>
-        <div className="repair-finance-card">
-          <span>Assigned Technician</span>
-          <strong>{job.technicianName || 'Unassigned'}</strong>
+
+        <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Current Status</span>
+          <span className={`badge ${job.status === 'Work in Progress' || job.status === 'Repair Approved' ? 'success' : job.status === 'Ready for Delivery' ? 'success' : job.status.includes('Waiting') ? 'warning' : 'info'}`} style={{ fontWeight: 700, fontSize: 12 }}>
+            {job.status}
+          </span>
         </div>
-        <div className="repair-finance-card">
-          <span>Total Bill</span>
-          <strong>{money(job.total)}</strong>
+
+        <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Technician</span>
+          <strong style={{ fontSize: 13, color: '#1e40af' }}>{job.technicianName || 'Unassigned'}</strong>
         </div>
-        <div className="repair-finance-card">
-          <span>Remaining Due</span>
-          <strong style={{ color: job.remaining > 0 ? 'var(--danger)' : 'var(--success)' }}>{money(job.remaining)}</strong>
+
+        <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Total Bill</span>
+          <strong style={{ fontSize: 14, color: '#1e293b' }}>{money(job.total)}</strong>
+        </div>
+
+        <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 4 }}>Remaining Due</span>
+          <strong style={{ fontSize: 14, color: job.remaining > 0 ? '#dc2626' : '#16a34a' }}>{money(job.remaining)}</strong>
         </div>
       </div>
 
       {canApprove && (
-        <div className="line-card" style={{ borderColor: '#fde047', background: '#fffbeb', marginBottom: 14 }}>
-          <div className="line-card-head">
-            <strong style={{ color: '#854d0e' }}>Customer Approval Required for Quotation</strong>
-            <div>
-              <button type="button" className="btn success small" onClick={handleApproveQuote} style={{ marginRight: 8 }}>
-                Approve (PKR {parseFloat(job.quotationAmount || 0)})
-              </button>
-              <button type="button" className="btn danger small" onClick={handleDeclineQuote}>
-                Decline Quotation
-              </button>
+        <div style={{
+          padding: '14px 16px',
+          background: '#fffbeb',
+          borderRadius: 10,
+          border: '1px solid #fde047',
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span className="badge warning" style={{ fontWeight: 700, fontSize: 11 }}>⏳ APPROVAL REQUIRED</span>
+              <strong style={{ fontSize: 13, color: '#854d0e' }}>Customer Quotation Approval</strong>
+            </div>
+            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
+              <div><strong>Diagnosis:</strong> {job.diagnosedIssue || 'Inspection findings recorded'}</div>
+              <div><strong>Recommended Repair:</strong> {job.recommendedSolution || 'Hardware repair'}</div>
+              <div><strong>Quoted Estimate:</strong> <b style={{ color: '#1e293b' }}>{money(job.quotationAmount)}</b></div>
             </div>
           </div>
-          <p style={{ margin: 0, fontSize: 11 }}>
-            Diagnosed Issue: <b>{job.diagnosedIssue || 'Inspection completed'}</b><br />
-            Recommended Solution: <b>{job.recommendedSolution || 'Component repair'}</b><br />
-            Quoted Estimate: <b>{money(job.quotationAmount)}</b>
-          </p>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn success small" onClick={handleApproveQuote} style={{ fontWeight: 700 }}>
+              Approve ({money(job.quotationAmount)})
+            </button>
+            <button type="button" className="btn danger small" onClick={handleDeclineQuote}>
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Fault Approval Requests */}
+      {additionalWorkRequests && additionalWorkRequests.length > 0 && (
+        <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {additionalWorkRequests.map(req => {
+            const isPending = req.status === 'Pending Approval';
+            const isApproved = req.status === 'Approved';
+            const isDeclined = req.status === 'Declined';
+            return (
+              <div
+                key={req.id}
+                className="line-card"
+                style={{
+                  borderColor: isPending ? '#fde047' : isApproved ? '#bbf7d0' : '#fecaca',
+                  background: isPending ? '#fffbeb' : isApproved ? '#f0fdf4' : '#fef2f2',
+                  padding: '12px 14px'
+                }}
+              >
+                <div className="line-card-head" style={{ marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span className={`badge ${isPending ? 'warning' : isApproved ? 'success' : 'danger'}`} style={{ fontSize: 10.5, fontWeight: 700 }}>
+                      {isPending ? '⏳ ADDITIONAL FAULT APPROVAL REQUIRED' : isApproved ? `✅ APPROVED (${req.approval_source || 'WhatsApp'})` : '❌ DECLINED'}
+                    </span>
+                    <strong style={{ fontSize: 13, color: '#1e293b' }}>{req.recommended_service}</strong>
+                  </div>
+                  {isPending ? (
+                    <div>
+                      <button
+                        type="button"
+                        className="btn success small"
+                        onClick={() => handleApproveAdditionalWork(req.id, req.total_quotation)}
+                        style={{ marginRight: 8, fontWeight: 700 }}
+                      >
+                        Approve (+ PKR {parseFloat(req.total_quotation || 0)})
+                      </button>
+                      <button
+                        type="button"
+                        className="btn danger small"
+                        onClick={() => handleDeclineAdditionalWork(req.id)}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>
+                      {isApproved ? `+ ${money(req.total_quotation)} Added to Bill` : 'No Extra Charges'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: '#475569' }}>
+                  <strong>Discovered Fault:</strong> {req.fault_finding}<br />
+                  <strong>Service Charge:</strong> PKR {parseFloat(req.service_charge || 0).toLocaleString('en-PK')} | <strong>Parts Charge:</strong> PKR {parseFloat(req.parts_charge || 0).toLocaleString('en-PK')} | <strong>Total Quote:</strong> <b style={{ color: '#1e40af' }}>{money(req.total_quotation)}</b>
+                  {req.customer_safe_note && <div><strong>Customer Note:</strong> {req.customer_safe_note}</div>}
+                  {req.customer_response && <div style={{ color: '#64748b', marginTop: 2 }}><strong>Audit Response:</strong> {req.customer_response}</div>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

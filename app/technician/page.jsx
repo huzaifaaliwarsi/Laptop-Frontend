@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Wrench, Stethoscope } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
@@ -45,9 +46,9 @@ export default function TechnicianDashboardPage() {
     <>
       <div className="tech-profile-band">
         <div>
-          <h3>Technician Workstation</h3>
-          <p>
-            Welcome, <strong>{user?.name || 'Technician'}</strong>. View your assigned diagnostic and service jobs.
+          <h3 style={{ color: '#ffffff', margin: '0 0 3px' }}>Technician Workstation</h3>
+          <p style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+            Welcome, <strong style={{ color: '#ffffff' }}>{user?.name || 'Technician'}</strong>. View your assigned diagnostic and service jobs.
           </p>
         </div>
         <div className="tech-profile-badge">
@@ -108,6 +109,7 @@ export default function TechnicianDashboardPage() {
                 <thead>
                   <tr>
                     <th>Tracking ID</th>
+                    <th>Job Type</th>
                     <th>Customer</th>
                     <th>Device</th>
                     <th>Priority</th>
@@ -117,11 +119,40 @@ export default function TechnicianDashboardPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <TableRowSkeleton cols={6} rows={4} />
+                    <TableRowSkeleton cols={7} rows={4} />
                   ) : dueJobs.length > 0 ? (
                     dueJobs.map(job => (
                       <tr key={job.id}>
                         <td><strong>{job.tracking_id}</strong></td>
+                        <td>
+                          {job.job_type === 'Service Job' ? (
+                            <span className="badge" style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}>
+                              <Wrench size={10} /> Service
+                            </span>
+                          ) : (
+                            <span className="badge" style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              background: '#fffbeb',
+                              color: '#b45309',
+                              border: '1px solid #fde68a',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}>
+                              <Stethoscope size={10} /> Diagnosis
+                            </span>
+                          )}
+                        </td>
                         <td>{job.customer_name}</td>
                         <td>{[job.brand, job.model].filter(Boolean).join(' ') || 'Device'}</td>
                         <td>
@@ -143,7 +174,7 @@ export default function TechnicianDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
                         No urgent deadlines due today.
                       </td>
                     </tr>
@@ -168,18 +199,48 @@ export default function TechnicianDashboardPage() {
                 <thead>
                   <tr>
                     <th>Tracking ID</th>
-                    <th>Device & Fault</th>
+                    <th>Type</th>
+                    <th>Device & Work</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <TableRowSkeleton cols={4} rows={4} />
+                    <TableRowSkeleton cols={5} rows={4} />
                   ) : recentJobs.length > 0 ? (
                     recentJobs.map(job => (
                       <tr key={job.id}>
                         <td><strong>{job.tracking_id}</strong></td>
+                        <td>
+                          {job.job_type === 'Service Job' ? (
+                            <span className="badge" style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}>
+                              <Wrench size={10} /> Service
+                            </span>
+                          ) : (
+                            <span className="badge" style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              background: '#fffbeb',
+                              color: '#b45309',
+                              border: '1px solid #fde68a',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}>
+                              <Stethoscope size={10} /> Diagnosis
+                            </span>
+                          )}
+                        </td>
                         <td>
                           <div>{[job.brand, job.model].filter(Boolean).join(' ') || 'Device'}</div>
                           <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{job.problem}</div>
@@ -198,7 +259,7 @@ export default function TechnicianDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>
                         No assigned repair jobs.
                       </td>
                     </tr>

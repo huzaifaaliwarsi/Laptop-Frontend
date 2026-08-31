@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400;1,500;1,700&display=swap');
 
 @theme {
   --color-brand-50: #eff6ff;
@@ -19,6 +20,10 @@
 }
 
 :root {
+  --font-roboto: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-primary: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-opensans: 'Roboto', 'Open Sans', sans-serif;
+  --font-lato: 'Roboto', 'Lato', sans-serif;
   --bg: #f3f7fc;
   --panel: #ffffff;
   --panel-2: #f8fbff;
@@ -60,10 +65,23 @@ body {
     radial-gradient(circle at 90% 0%, rgba(59, 130, 246, .08), transparent 27rem),
     linear-gradient(180deg, #f7faff 0, #f3f7fc 360px, #f3f7fc 100%);
   color: #10213a;
-  font-family: Inter, "Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Universal typography defaults for form controls, buttons, tables, headings */
+input, button, select, textarea, optgroup, option {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 ::selection {
@@ -1621,6 +1639,7 @@ table.data-table tbody tr:hover {
   margin: 0 0 3px;
   font-size: 17px;
   font-weight: 800;
+  color: #ffffff !important;
 }
 
 .tech-profile-band p {
@@ -1723,6 +1742,39 @@ table.data-table tbody tr:hover {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+/* Repair Finance & Status Band */
+.repair-finance-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.repair-finance-card {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.repair-finance-card span {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.repair-finance-card strong {
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 700;
 }
 
 /* Invoice Preview Modal Styles */
@@ -3039,7 +3091,7 @@ table.data-table tbody tr:hover {
    ========================================= */
 .login-split-wrapper {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 60% 40%;
   min-height: 100vh;
   width: 100%;
   font-family: Arial, Helvetica, sans-serif;
@@ -3049,7 +3101,7 @@ table.data-table tbody tr:hover {
 .login-left-panel {
   position: relative;
   background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 40%, #3b82f6 100%);
-  padding: 54px 50px 36px;
+  padding: 60px 60px 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -3426,3 +3478,95 @@ table.data-table tbody tr:hover {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+
+/* ==========================================================================
+   UNIVERSAL POS & ENTERPRISE TYPOGRAPHY (Roboto)
+   ========================================================================== */
+body,
+.brand h1,
+.brand p,
+.topbar h2,
+.nav-btn,
+.nav-label,
+.panel-head h3,
+.panel-head p,
+.card-head h4,
+.card-head p,
+.modal-head h3,
+.modal-head p,
+.kpi-title,
+.kpi-num,
+.stat-value,
+.stat-top,
+.stat-note,
+.badge,
+.btn,
+.tab,
+table,
+th,
+td,
+input,
+select,
+textarea,
+.search-input,
+.font-mono {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Headings & Major Labels */
+h1, h2, h3, h4, h5, h6,
+.topbar h2,
+.panel-head h3,
+.modal-head h3 {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #0f172a;
+}
+
+/* Metric & Monetary Figures */
+.stat-value,
+.kpi-num,
+.financial-metric,
+.receipt-total {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* Tables & Data Grids */
+table th {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+table td {
+  font-size: 12.5px;
+}
+
+/* Buttons, Tabs & Badges */
+.btn {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tab {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.badge {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Navigation items */
+.nav-btn {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.nav-label {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}

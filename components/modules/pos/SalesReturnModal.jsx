@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, AlertCircle, CheckCircle2, DollarSign, Package, User, Calendar, CreditCard } from 'lucide-react';
 import Modal from '../../common/Modal';
+import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 import { notifyBalanceUpdated } from '../../../utils/formatters';
@@ -28,6 +29,14 @@ export default function SalesReturnModal({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Insufficient Balance Warning State
+  const [balanceWarningModal, setBalanceWarningModal] = useState({
+    isOpen: false,
+    availableBalance: 0,
+    requiredAmount: 0,
+    paymentMethod: 'Cash'
+  });
+
   useEffect(() => {
     if (isOpen && invoice) {
       const isBuyback = invoice.type === 'Customer Purchase';
@@ -52,25 +61,9 @@ export default function SalesReturnModal({
   const totalPaid = parseFloat(invoice.paid || 0);
   const invoiceTotal = parseFloat(invoice.total || 0);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const executeReturn = async () => {
     const finalReason = reason === 'Other' ? customReason.trim() : reason;
-    if (!finalReason) {
-      toast('Please provide a reason for return / void', 'error');
-      return;
-    }
-
     const numRefund = parseFloat(refundAmount || 0);
-    if (isNaN(numRefund) || numRefund < 0) {
-      toast('Amount cannot be negative', 'error');
-      return;
-    }
-
-    if (refundMethod === 'Online' && numRefund > 0 && !referenceId.trim()) {
-      toast('Online payment reference ID is required for online settlement', 'error');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -98,7 +91,56 @@ export default function SalesReturnModal({
       toast(err.message || 'Error processing return', 'error');
     } finally {
       setSubmitting(false);
+      setBalanceWarningModal(prev => ({ ...prev, isOpen: false }));
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const finalReason = reason === 'Other' ? customReason.trim() : reason;
+    if (!finalReason) {
+      toast('Please provide a reason for return / void', 'error');
+      return;
+    }
+
+    const numRefund = parseFloat(refundAmount || 0);
+    if (isNaN(numRefund) || numRefund < 0) {
+      toast('Amount cannot be negative', 'error');
+      return;
+    }
+
+    if (refundMethod === 'Online' && numRefund > 0 && !referenceId.trim()) {
+      toast('Online payment reference ID is required for online settlement', 'error');
+      return;
+    }
+
+    // Check Drawer Balance before cash/online refund outflow
+    if (numRefund > 0 && ['Cash', 'Online'].includes(refundMethod)) {
+      let available = 0;
+      let balCheckOk = false;
+      try {
+        const balRes = await api.get('/accounts/drawer-balance', { noCache: true });
+        if (balRes.success && balRes.data) {
+          available = refundMethod === 'Cash' ? (balRes.data.cash ?? 0) : (balRes.data.online ?? 0);
+          balCheckOk = true;
+        }
+      } catch (err) {
+        available = 0;
+        balCheckOk = false;
+      }
+      if (!balCheckOk || numRefund > available + 0.005) {
+        setBalanceWarningModal({
+          isOpen: true,
+          availableBalance: available,
+          requiredAmount: numRefund,
+          paymentMethod: refundMethod
+        });
+        return;
+      }
+    }
+
+    await executeReturn();
   };
 
   const modalTitle = isBuyback
@@ -107,7 +149,9 @@ export default function SalesReturnModal({
     ? 'Product Exchange Reversal & Void'
     : 'Customer Sales Return & Void Refund';
 
-  const modalSubtitle = `Process return/void for ${invoice.invoiceNo} — ${invoice.partyName || 'Customer'}`;
+  const invNumber = invoice.invoice_no || invoice.invoiceNo || invoice.id || '—';
+  const partyName = invoice.party_name || invoice.partyName || 'Customer';
+  const modalSubtitle = `Process return/void for ${invNumber} — ${partyName}`;
 
   return (
     <Modal
@@ -129,11 +173,11 @@ export default function SalesReturnModal({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div>
               <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Invoice Number</span>
-              <strong style={{ fontSize: 13, color: '#0f172a' }}>{invoice.invoiceNo}</strong>
+              <strong style={{ fontSize: 13, color: '#0f172a' }}>{invNumber}</strong>
             </div>
             <div>
               <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Party / Customer</span>
-              <strong style={{ fontSize: 13, color: '#0f172a' }}>{invoice.partyName || 'Customer'}</strong>
+              <strong style={{ fontSize: 13, color: '#0f172a' }}>{partyName}</strong>
             </div>
             <div>
               <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Invoice Type</span>
@@ -332,6 +376,17 @@ export default function SalesReturnModal({
           </button>
         </div>
       </form>
+
+      {/* Insufficient Cash / Balance Warning Modal */}
+      <InsufficientBalanceConfirmModal
+        isOpen={balanceWarningModal.isOpen}
+        onClose={() => setBalanceWarningModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeReturn}
+        paymentMethod={balanceWarningModal.paymentMethod}
+        requiredAmount={balanceWarningModal.requiredAmount}
+        availableBalance={balanceWarningModal.availableBalance}
+        isSubmitting={submitting}
+      />
     </Modal>
   );
 }

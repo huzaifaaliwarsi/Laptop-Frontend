@@ -175,11 +175,13 @@ export default function CustomSaleModal({
 
       const res = await api.post('/pos/sale', payload);
       if (res.success) {
-        toast(`Custom Sale Invoice ${res.data.invoice.invoiceNo} saved successfully!`);
+        const inv = res.data?.invoice || {};
+        const invNo = inv.invoice_no || inv.invoiceNo || inv.id || '';
+        toast(`Custom Sale Invoice ${invNo} saved successfully!`);
         onClose();
         if (onSuccess) {
           const shouldPreview = submitAction === 'save_preview';
-          onSuccess(res.data.invoice, shouldPreview);
+          onSuccess(inv, shouldPreview);
         }
       }
     } catch (err) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
@@ -10,6 +11,7 @@ import CreateRepairJobModal from '../../components/modules/repairs/CreateRepairJ
 import AddProductModal from '../../components/modules/inventory/AddProductModal';
 import ExpenseModal from '../../components/modules/expenses/ExpenseModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
+import CashDrawerModal from '../../components/modules/pos/CashDrawerModal';
 import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 import { useToast } from '../../components/common/Toast';
 
@@ -33,6 +35,7 @@ export default function DashboardPage() {
   const [isRepairOpen, setIsRepairOpen] = useState(false);
   const [isProductOpen, setIsProductOpen] = useState(false);
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+  const [isCashDrawerOpen, setIsCashDrawerOpen] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState(null);
 
   const loadDashboard = () => {
@@ -70,7 +73,7 @@ export default function DashboardPage() {
   const lowStock = data?.lowStock || [];
 
   return (
-    <div className="space-y-4">
+    <div className="dashboard-container space-y-4">
       {/* Hero Banner */}
       <div className="hero p-5 rounded-2xl bg-gradient-to-r from-white via-blue-50/40 to-blue-100/40 border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -111,6 +114,13 @@ export default function DashboardPage() {
             onClick={() => setIsExpenseOpen(true)}
           >
             <Icon name="banknote" /> + Record Expense
+          </button>
+          <button
+            type="button"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 inline-flex items-center gap-1.5 transition-all cursor-pointer"
+            onClick={() => setIsCashDrawerOpen(true)}
+          >
+            <Wallet size={13} /> + Cash Drawer
           </button>
         </div>
       </div>
@@ -474,6 +484,11 @@ export default function DashboardPage() {
         isOpen={!!previewInvoice}
         onClose={() => setPreviewInvoice(null)}
         invoice={previewInvoice}
+      />
+
+      <CashDrawerModal
+        isOpen={isCashDrawerOpen}
+        onClose={() => setIsCashDrawerOpen(false)}
       />
     </div>
   );

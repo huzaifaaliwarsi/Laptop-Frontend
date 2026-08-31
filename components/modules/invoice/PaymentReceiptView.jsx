@@ -58,10 +58,10 @@ export default function PaymentReceiptView({
               <span className="std-val">{receipt.contact}</span>
             </div>
           )}
-          {receipt.invoiceNo && (
+          {(receipt.invoiceNo || receipt.invoice_no) && (
             <div className="std-row">
               <span className="std-lbl">Invoice Ref:</span>
-              <span className="std-val font-mono">{receipt.invoiceNo}</span>
+              <span className="std-val font-mono">{receipt.invoiceNo || receipt.invoice_no}</span>
             </div>
           )}
           {notes && (

@@ -825,8 +825,23 @@ export default function VendorReturnModal({
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                           <div>
-                            <div style={{ fontSize: 11, textTransform: 'uppercase', fontWeight: 700, color: shopOwesVendor ? '#991b1b' : vendorOwesShop ? '#166534' : '#475569' }}>
-                              {shopOwesVendor ? '⚠️ Model Upgrade — Shop Owes Difference to Vendor' : vendorOwesShop ? '✓ Model Downgrade — Vendor Refunds Difference to Shop' : '✓ Equal Value Model Exchange'}
+                            <div style={{ fontSize: 11, textTransform: 'uppercase', fontWeight: 700, color: shopOwesVendor ? '#991b1b' : vendorOwesShop ? '#166534' : '#475569', display: 'flex', alignItems: 'center', gap: 5 }}>
+                              {shopOwesVendor ? (
+                                <>
+                                  <AlertTriangle size={13} />
+                                  <span>Model Upgrade — Shop Owes Difference to Vendor</span>
+                                </>
+                              ) : vendorOwesShop ? (
+                                <>
+                                  <CheckCircle2 size={13} />
+                                  <span>Model Downgrade — Vendor Refunds Difference to Shop</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowRightLeft size={13} />
+                                  <span>Equal Value Model Exchange</span>
+                                </>
+                              )}
                             </div>
                             <div style={{ fontSize: 12, color: '#334155', marginTop: 2 }}>
                               Return Value: <strong>{money(totalAmount)}</strong> &nbsp;|&nbsp; Replacement Value: <strong>{money(replacementValue)}</strong>

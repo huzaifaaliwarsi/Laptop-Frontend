@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, LogOut, Smartphone, Settings } from 'lucide-react';
+import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, LogOut, Smartphone, Settings, Info } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
@@ -311,19 +311,21 @@ export default function WhatsappSettingsModal({
               </div>
 
               <div>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 700 }}>
-                  📲 How to Connect Mobile WhatsApp:
+                <h4 style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Smartphone size={16} className="text-blue-600" />
+                  <span>How to Connect Mobile WhatsApp:</span>
                 </h4>
                 <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--text)', lineHeight: 1.8 }}>
                   <li>Open <strong>WhatsApp</strong> on your phone.</li>
-                  <li>Tap <strong>Menu (⋮)</strong> on Android or <strong>Settings (⚙️)</strong> on iPhone.</li>
+                  <li>Tap <strong>Menu (⋮)</strong> on Android or <strong>Settings</strong> on iPhone.</li>
                   <li>Select <strong>Linked Devices</strong>.</li>
                   <li>Tap <strong>Link a Device</strong> and point your camera at the QR code on this screen.</li>
                   <li>Once connected, the screen will automatically update to <strong>Connected</strong>!</li>
                 </ol>
 
-                <div style={{ marginTop: 14, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 11.5, color: '#1e40af' }}>
-                  ℹ️ <strong>Multi-Device:</strong> Your phone does not need to stay online 24/7 once linked. Messages are automatically sent directly from your server!
+                <div style={{ marginTop: 14, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 11.5, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Info size={14} className="text-blue-600 flex-shrink-0" />
+                  <span><strong>Multi-Device:</strong> Your phone does not need to stay online 24/7 once linked. Messages are automatically sent directly from your server!</span>
                 </div>
               </div>
             </div>
@@ -382,8 +384,9 @@ export default function WhatsappSettingsModal({
                 </button>
               </div>
               {!waStatus.connected && (
-                <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 6 }}>
-                  ⚠️ Connect WhatsApp above first before sending test messages.
+                <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <AlertCircle size={13} className="flex-shrink-0" />
+                  <span>Connect WhatsApp above first before sending test messages.</span>
                 </div>
               )}
             </form>

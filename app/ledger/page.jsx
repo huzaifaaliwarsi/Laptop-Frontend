@@ -330,7 +330,7 @@ export default function LedgerPage() {
                     >
                       <div className="ledger-bill-head" onClick={() => toggleBill(bill.id)}>
                         <div>
-                          <h4>{bill.invoiceNo} · {bill.type}</h4>
+                          <h4>{bill.invoiceNo || bill.invoice_no || bill.id} · {bill.type}</h4>
                           <p>
                             Date: {fmtDate(bill.date)} · Total: <b>{money(bill.total)}</b> · Paid: <b>{money(bill.paidToDate || bill.actualMoneyReceived || 0)}</b>
                           </p>
@@ -349,7 +349,7 @@ export default function LedgerPage() {
                                   id: bill.accountId,
                                   type: isVendor ? 'Vendor Payable' : 'Customer Receivable',
                                   partyName: party.name,
-                                  invoiceNo: bill.invoiceNo,
+                                  invoiceNo: bill.invoiceNo || bill.invoice_no,
                                   amount: bill.total,
                                   remaining: bill.remaining
                                 });
