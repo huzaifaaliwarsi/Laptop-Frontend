@@ -12,7 +12,8 @@ export default function ManageCategoriesModal({
   onClose,
   selectedCategory = '',
   onSelectCategory,
-  onCategoriesUpdated
+  onCategoriesUpdated,
+  type = 'product'
 }) {
   const { toast } = useToast();
   const [categories, setCategories] = useState([]);
@@ -22,10 +23,13 @@ export default function ManageCategoriesModal({
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
+  const isSpareParts = type === 'spare-parts';
+  const apiEndpoint = isSpareParts ? '/categories/spare-parts' : '/categories/product';
+
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/categories/product');
+      const res = await api.get(apiEndpoint);
       if (res.success && Array.isArray(res.data)) {
         setCategories(res.data);
         if (onCategoriesUpdated) {
@@ -45,7 +49,7 @@ export default function ManageCategoriesModal({
       setName('');
       setCodePrefix('');
     }
-  }, [isOpen]);
+  }, [isOpen, type]);
 
   const handleNameChange = (e) => {
     const val = e.target.value;
@@ -68,27 +72,25 @@ export default function ManageCategoriesModal({
     try {
       const payload = {
         name: cleanName,
-        codePrefix: codePrefix.trim().toUpperCase() || cleanName.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'CAT'
+        codePrefix: codePrefix.trim().toUpperCase() || cleanName.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || (isSpareParts ? 'PRT' : 'CAT')
       };
 
-      const res = await api.post('/categories/product', payload);
+      const res = await api.post(apiEndpoint, payload);
       if (res.success && res.data) {
-        toast(`Category "${res.data.name}" added and selected!`);
+        toast(`Category "${res.data.name}" added successfully!`);
         setName('');
         setCodePrefix('');
         
-        // 1. Select the new category immediately in the product form
         if (onSelectCategory) {
           onSelectCategory(res.data.name);
         }
 
-        // 2. Broadcast event to entire app
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('app:categories-updated', { detail: res.data }));
+          window.dispatchEvent(new CustomEvent(isSpareParts ? 'app:spare-categories-updated' : 'app:categories-updated', { detail: res.data }));
+          window.dispatchEvent(new CustomEvent('app:repair-parts-updated'));
         }
 
-        // 3. Auto-close modal immediately so user sees it selected in Image 2
-        onClose();
+        await fetchCategories();
       }
     } catch (err) {
       toast(err.message || 'Failed to add category', 'error');
@@ -98,9 +100,9 @@ export default function ManageCategoriesModal({
   };
 
   const handleDeleteCategory = async (cat) => {
-    const productCount = parseInt(cat.product_count || 0, 10);
-    if (productCount > 0) {
-      toast(`Cannot delete "${cat.name}" because it is linked to ${productCount} product(s)`, 'error');
+    const count = parseInt(isSpareParts ? (cat.part_count || 0) : (cat.product_count || 0), 10);
+    if (count > 0) {
+      toast(`Cannot delete "${cat.name}" because it is linked to ${count} ${isSpareParts ? 'spare part(s)' : 'product(s)'}`, 'error');
       return;
     }
 
@@ -110,11 +112,12 @@ export default function ManageCategoriesModal({
 
     setDeletingId(cat.id);
     try {
-      const res = await api.delete(`/categories/product/${cat.id}`);
+      const res = await api.delete(`${apiEndpoint}/${cat.id}`);
       if (res.success) {
         toast(`Category "${cat.name}" deleted successfully.`);
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('app:categories-updated'));
+          window.dispatchEvent(new CustomEvent(isSpareParts ? 'app:spare-categories-updated' : 'app:categories-updated'));
+          window.dispatchEvent(new CustomEvent('app:repair-parts-updated'));
         }
         await fetchCategories();
       }
@@ -137,8 +140,8 @@ export default function ManageCategoriesModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Manage Product Categories"
-      subtitle="Create new categories or delete unused categories stored in PostgreSQL database"
+      title={isSpareParts ? "Manage Workshop Spare Part Categories" : "Manage Product Categories"}
+      subtitle={isSpareParts ? "Create or delete workshop spare part categories stored in database" : "Create new categories or delete unused categories stored in PostgreSQL database"}
       wide={true}
       footer={
         <button type="button" className="btn primary" onClick={onClose}>
@@ -263,8 +266,8 @@ export default function ManageCategoriesModal({
                 ) : (
                   categories.map((c) => {
                     const isCurrent = selectedCategory && selectedCategory.toLowerCase() === c.name.toLowerCase();
-                    const productCount = parseInt(c.product_count || 0, 10);
-                    const canDelete = productCount === 0;
+                    const count = parseInt(isSpareParts ? (c.part_count || 0) : (c.product_count || 0), 10);
+                    const canDelete = count === 0;
 
                     return (
                       <tr
@@ -302,7 +305,7 @@ export default function ManageCategoriesModal({
                             border: '1px solid var(--border)',
                             fontWeight: 700
                           }}>
-                            {c.code_prefix || 'PRD'}
+                            {c.code_prefix || (isSpareParts ? 'PRT' : 'PRD')}
                           </code>
                         </td>
 
@@ -311,11 +314,11 @@ export default function ManageCategoriesModal({
                             fontSize: 12,
                             padding: '2px 8px',
                             borderRadius: 10,
-                            background: productCount > 0 ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg)',
-                            color: productCount > 0 ? '#059669' : 'var(--muted)',
+                            background: count > 0 ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg)',
+                            color: count > 0 ? '#059669' : 'var(--muted)',
                             fontWeight: 600
                           }}>
-                            {productCount} {productCount === 1 ? 'item' : 'items'}
+                            {count} {count === 1 ? (isSpareParts ? 'part' : 'item') : (isSpareParts ? 'parts' : 'items')}
                           </span>
                         </td>
 
@@ -364,7 +367,7 @@ export default function ManageCategoriesModal({
                                 className="btn small"
                                 style={{ padding: '3px 8px', fontSize: 11, opacity: 0.4, cursor: 'not-allowed' }}
                                 disabled
-                                title={`Cannot delete: Assigned to ${productCount} active product(s)`}
+                                title={`Cannot delete: Assigned to ${count} active ${isSpareParts ? 'spare part(s)' : 'product(s)'}`}
                               >
                                 <Trash2 size={12} />
                               </button>

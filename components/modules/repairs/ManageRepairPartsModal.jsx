@@ -29,6 +29,7 @@ export default function ManageRepairPartsModal({
 }) {
   const { toast } = useToast();
   const [parts, setParts] = useState([]);
+  const [categoriesList, setCategoriesList] = useState(CATEGORIES);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -41,9 +42,17 @@ export default function ManageRepairPartsModal({
       let query = '/repair-parts?';
       if (selectedCategory !== 'All') query += `category=${encodeURIComponent(selectedCategory)}&`;
       if (search.trim()) query += `search=${encodeURIComponent(search.trim())}&`;
-      const res = await api.get(query);
+      
+      const [res, cRes] = await Promise.all([
+        api.get(query),
+        api.get('/repair-parts/categories')
+      ]);
+
       if (res.success) {
         setParts(res.data || []);
+      }
+      if (cRes.success && Array.isArray(cRes.data)) {
+        setCategoriesList(['All', ...Array.from(new Set(cRes.data))]);
       }
     } catch (err) {
       toast(err.message || 'Error fetching spare parts', 'error');
@@ -125,7 +134,7 @@ export default function ManageRepairPartsModal({
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 style={{ width: 170 }}
               >
-                {CATEGORIES.map(cat => (
+                {categoriesList.map(cat => (
                   <option key={cat} value={cat}>{cat === 'All' ? 'All Categories' : cat}</option>
                 ))}
               </select>

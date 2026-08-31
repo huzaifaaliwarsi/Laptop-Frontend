@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Store, Laptop, Cpu, Plus, RefreshCw, Trash2, Edit } from 'lucide-react';
+import { Store, Laptop, Cpu, Plus, RefreshCw, Trash2, Edit, Settings2 } from 'lucide-react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import AddProductModal from '../../components/modules/inventory/AddProductModal';
@@ -66,6 +66,7 @@ export default function InventoryPage() {
 
   // --- 2. Workshop Spare Parts State ---
   const [spareParts, setSpareParts] = useState([]);
+  const [spareCategories, setSpareCategories] = useState([]);
   const [partSearch, setPartSearch] = useState('');
   const [partCategoryFilter, setPartCategoryFilter] = useState('');
   const [partStatusFilter, setPartStatusFilter] = useState('');
@@ -73,6 +74,7 @@ export default function InventoryPage() {
 
   // Spare Parts Modals & Selection
   const [isAddPartOpen, setIsAddPartOpen] = useState(false);
+  const [isManageSpareCategoriesOpen, setIsManageSpareCategoriesOpen] = useState(false);
   const [editPart, setEditPart] = useState(null);
   const [adjustPart, setAdjustPart] = useState(null);
   const [historyPart, setHistoryPart] = useState(null);
@@ -108,9 +110,15 @@ export default function InventoryPage() {
       else if (partStatusFilter === 'Active' || partStatusFilter === 'Inactive') url += `status=${encodeURIComponent(partStatusFilter)}&`;
     }
 
-    api.get(url)
-      .then(res => {
+    Promise.all([
+      api.get(url),
+      api.get('/repair-parts/categories')
+    ])
+      .then(([res, cRes]) => {
         if (res.success) setSpareParts(res.data || []);
+        if (cRes.success && Array.isArray(cRes.data)) {
+          setSpareCategories(prev => Array.from(new Set([...prev, ...cRes.data])).filter(Boolean));
+        }
       })
       .catch(console.error)
       .finally(() => setLoadingParts(false));
@@ -541,7 +549,7 @@ export default function InventoryPage() {
                   onChange={(e) => setPartCategoryFilter(e.target.value)}
                 >
                   <option value="">All Spare Categories</option>
-                  {SPARE_PART_CATEGORIES.map(cat => (
+                  {spareCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
@@ -589,6 +597,16 @@ export default function InventoryPage() {
                 >
                   <RefreshCw size={13} className={loadingParts ? 'animate-spin' : ''} /> Refresh
                 </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setIsManageSpareCategoriesOpen(true)}
+                    title="Manage Workshop Spare Part Categories"
+                  >
+                    <Settings2 size={13} /> Manage Categories
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn primary"
@@ -802,6 +820,13 @@ export default function InventoryPage() {
         isOpen={!!historyPart}
         onClose={() => setHistoryPart(null)}
         part={historyPart}
+      />
+
+      <ManageCategoriesModal
+        isOpen={isManageSpareCategoriesOpen}
+        onClose={() => setIsManageSpareCategoriesOpen(false)}
+        type="spare-parts"
+        onCategoriesUpdated={() => loadSpareParts()}
       />
     </>
   );

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Check, X, Tag } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
-const SPARE_PART_CATEGORIES = [
+const DEFAULT_SPARE_CATEGORIES = [
   'Screen / Display',
   'Battery',
   'Keyboard',
@@ -31,6 +32,9 @@ export default function RepairPartModal({
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Screen / Display');
+  const [categoriesList, setCategoriesList] = useState(DEFAULT_SPARE_CATEGORIES);
+  const [isAddingNewCat, setIsAddingNewCat] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
   const [compatibleModels, setCompatibleModels] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
@@ -39,8 +43,26 @@ export default function RepairPartModal({
   const [status, setStatus] = useState('Active');
   const [submitting, setSubmitting] = useState(false);
 
+  const fetchSpareCategories = useCallback(async () => {
+    try {
+      const res = await api.get('/repair-parts/categories');
+      if (res.success && Array.isArray(res.data)) {
+        setCategoriesList(prev => {
+          const merged = Array.from(new Set([...DEFAULT_SPARE_CATEGORIES, ...res.data, ...prev])).filter(Boolean);
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching spare part categories:', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
+      fetchSpareCategories();
+      setIsAddingNewCat(false);
+      setNewCatInput('');
+
       if (part) {
         setCode(part.code || '');
         setName(part.name || '');
@@ -51,6 +73,14 @@ export default function RepairPartModal({
         setCurrentStock(part.currentStock !== undefined ? String(part.currentStock) : '0');
         setMinStockAlert(part.minStockAlert !== undefined ? String(part.minStockAlert) : '2');
         setStatus(part.status || 'Active');
+
+        // Make sure part's current category is in the list
+        if (part.category) {
+          setCategoriesList(prev => {
+            if (!prev.includes(part.category)) return [part.category, ...prev];
+            return prev;
+          });
+        }
       } else {
         setCode('');
         setName('');
@@ -63,7 +93,33 @@ export default function RepairPartModal({
         setStatus('Active');
       }
     }
-  }, [isOpen, part]);
+  }, [isOpen, part, fetchSpareCategories]);
+
+  const handleCategorySelect = (e) => {
+    const val = e.target.value;
+    if (val === '__add_new_category__') {
+      setIsAddingNewCat(true);
+      setNewCatInput('');
+    } else {
+      setCategory(val);
+    }
+  };
+
+  const handleSaveNewCategory = () => {
+    const clean = newCatInput.trim();
+    if (!clean) {
+      toast('Please enter a valid category name', 'error');
+      return;
+    }
+    setCategoriesList(prev => {
+      if (!prev.includes(clean)) return [clean, ...prev];
+      return prev;
+    });
+    setCategory(clean);
+    setIsAddingNewCat(false);
+    setNewCatInput('');
+    toast(`Category "${clean}" added!`);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,12 +128,17 @@ export default function RepairPartModal({
       return;
     }
 
+    if (!category.trim()) {
+      toast('Please select or specify a category', 'error');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
         code: code.trim() || undefined,
         name: name.trim(),
-        category,
+        category: category.trim(),
         compatibleModels: compatibleModels.trim() || undefined,
         costPrice: costPrice !== '' ? parseFloat(costPrice) : 0,
         sellingPrice: sellingPrice !== '' ? parseFloat(sellingPrice) : 0,
@@ -161,8 +222,10 @@ export default function RepairPartModal({
               className="select"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
+              required
             >
-              {SPARE_PART_CATEGORIES.map(cat => (
+              <option value="">-- Select Spare Category --</option>
+              {categoriesList.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>

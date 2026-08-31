@@ -63,30 +63,30 @@ export default function Sidebar({ isOpen, onClose }) {
       id="sidebar"
     >
       <div>
-        {/* Brand Card */}
+        {/* Brand Header */}
         <div className="brand">
-          <div className="flex items-center justify-between">
-            <div className="brand-mark">
-              {brandMarkup}
-            </div>
-            {/* Close button inside mobile drawer */}
-            <button
-              type="button"
-              className="lg:hidden p-2 -mr-1 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-              onClick={onClose}
-              aria-label="Close sidebar"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="brand-mark">
+            {brandMarkup}
           </div>
-          <h1 className="text-xs font-black text-slate-800 tracking-tight leading-tight m-0">
-            {companyBranding?.company_name || 'Retail & Repair Management'}
-          </h1>
-          <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
-            {companyBranding?.tagline || 'POS, Inventory Management, Sales & Purchases'}
-          </p>
+          <div className="brand-info">
+            <h1 className="brand-title">
+              {companyBranding?.company_name || 'iSysware'}
+            </h1>
+            <p className="brand-subtitle">
+              {companyBranding?.tagline || 'Retail & Repair Management'}
+            </p>
+          </div>
+          {/* Close button inside mobile drawer */}
+          <button
+            type="button"
+            className="lg:hidden p-1.5 -mr-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer ml-auto"
+            onClick={onClose}
+            aria-label="Close sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation Links */}
