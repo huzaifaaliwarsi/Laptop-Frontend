@@ -155,7 +155,6 @@ export default function SuperAdminPage() {
       params.append('branchId', selectedBranch);
       if (from) params.append('from', from);
       if (to) params.append('to', to);
-      params.append('_t', String(Date.now()));
 
       const res = await api.get(`/super-admin/reports/consolidated?${params.toString()}`);
       if (res.success && res.data) {
