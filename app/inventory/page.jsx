@@ -40,9 +40,10 @@ function money(v) {
 }
 
 export default function InventoryPage() {
-  const { role } = useAuth();
+  const { role, effectiveRole } = useAuth();
   const { toast } = useToast();
-  const isAdmin = role === 'admin';
+  const currentRole = effectiveRole || role;
+  const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
   // Active Tab: 'products' | 'spare-parts'
   const [activeTab, setActiveTab] = useState('products');
@@ -80,15 +81,18 @@ export default function InventoryPage() {
   const [historyPart, setHistoryPart] = useState(null);
   const [selectedPartIds, setSelectedPartIds] = useState([]);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   // Load Retail Products
-  const loadProducts = useCallback(() => {
+  const loadProducts = useCallback((force = false) => {
     setLoadingProducts(true);
     let url = '/products?';
     if (search) url += `search=${encodeURIComponent(search)}&`;
     if (categoryFilter) url += `category=${encodeURIComponent(categoryFilter)}&`;
     if (statusFilter) url += `status=${encodeURIComponent(statusFilter)}&`;
+    if (force) url += `_t=${Date.now()}&`;
 
-    Promise.all([
+    return Promise.all([
       api.get(url),
       api.get('/categories')
     ]).then(([pRes, cRes]) => {
@@ -99,7 +103,7 @@ export default function InventoryPage() {
   }, [search, categoryFilter, statusFilter]);
 
   // Load Workshop Spare Parts
-  const loadSpareParts = useCallback(() => {
+  const loadSpareParts = useCallback((force = false) => {
     setLoadingParts(true);
     let url = '/repair-parts?';
     if (partSearch) url += `search=${encodeURIComponent(partSearch)}&`;
@@ -109,8 +113,9 @@ export default function InventoryPage() {
       else if (partStatusFilter === 'Low Stock') url += 'lowStockOnly=true&';
       else if (partStatusFilter === 'Active' || partStatusFilter === 'Inactive') url += `status=${encodeURIComponent(partStatusFilter)}&`;
     }
+    if (force) url += `_t=${Date.now()}&`;
 
-    Promise.all([
+    return Promise.all([
       api.get(url),
       api.get('/repair-parts/categories')
     ])
@@ -123,6 +128,23 @@ export default function InventoryPage() {
       .catch(console.error)
       .finally(() => setLoadingParts(false));
   }, [partSearch, partCategoryFilter, partStatusFilter]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (activeTab === 'products') {
+        await loadProducts(true);
+        toast('Inventory refreshed successfully', 'success');
+      } else {
+        await loadSpareParts(true);
+        toast('Spare parts catalog refreshed successfully', 'success');
+      }
+    } catch (err) {
+      toast('Error refreshing inventory', 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleToggleSelectPart = (id) => {
     setSelectedPartIds(prev =>
@@ -372,7 +394,17 @@ export default function InventoryPage() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleRefresh}
+                  disabled={refreshing || loadingProducts}
+                  title="Refresh live retail inventory"
+                >
+                  <RefreshCw size={13} className={refreshing || loadingProducts ? 'animate-spin' : ''} />
+                  <span>{refreshing || loadingProducts ? 'Refreshing...' : 'Refresh'}</span>
+                </button>
                 <button
                   type="button"
                   className="btn"
@@ -592,10 +624,12 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   className="btn"
-                  onClick={loadSpareParts}
+                  onClick={handleRefresh}
+                  disabled={refreshing || loadingParts}
                   title="Refresh Spare Parts Catalog"
                 >
-                  <RefreshCw size={13} className={loadingParts ? 'animate-spin' : ''} /> Refresh
+                  <RefreshCw size={13} className={refreshing || loadingParts ? 'animate-spin' : ''} />
+                  <span>{refreshing || loadingParts ? 'Refreshing...' : 'Refresh'}</span>
                 </button>
                 {isAdmin && (
                   <button

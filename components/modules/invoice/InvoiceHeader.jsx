@@ -17,8 +17,17 @@ export default function InvoiceHeader({
 
   return (
     <div className="std-inv-header">
-      {/* 1. Large Top Company Title */}
-      <h1 className="std-company-title">{companyName.toUpperCase()}</h1>
+      {/* 1. Logo & Top Company Title */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
+        {companyBranding.logo_data && (
+          <img
+            src={companyBranding.logo_data}
+            alt={companyName}
+            style={{ maxHeight: 52, maxWidth: 140, objectFit: 'contain' }}
+          />
+        )}
+        <h1 className="std-company-title" style={{ margin: 0 }}>{companyName.toUpperCase()}</h1>
+      </div>
 
       {/* 2. Top Info Row: Address on Left, NTN/STRN/POS Table on Right */}
       <div className="std-header-grid">

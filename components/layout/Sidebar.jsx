@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import Icon from '../common/Icon';
 
@@ -18,38 +18,94 @@ function getInitials(name) {
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
-  const { user, role, logout, companyBranding } = useAuth();
+  const searchParams = useSearchParams();
+  const { user, role, effectiveRole, activePortalView, switchPortalView, logout, companyBranding, activeBranch } = useAuth();
+  const isSuperAdmin = role === 'super_admin';
+
+  const isSuperAdminView = isSuperAdmin && (pathname.startsWith('/super-admin') || activePortalView === 'super_admin');
+  const currentBranchName = activeBranch?.branch_name ? activeBranch.branch_name.replace(/\s*\(Main Branch\)\s*/i, '').trim() : null;
+  const displayName = isSuperAdminView
+    ? 'Central Platform'
+    : (currentBranchName || companyBranding?.company_name || 'Saad Communication');
+
+  const brandSubtitle = isSuperAdminView
+    ? 'Master Operations & Multi-Branch'
+    : (activeBranch?.branch_code ? `${activeBranch.branch_code} • POS & Workshop` : (companyBranding?.tagline || 'Retail & Repair Management'));
 
   const brandMarkup = companyBranding?.logo_data ? (
     <img src={companyBranding.logo_data} alt="Logo" className="w-full h-full object-contain" />
   ) : (
-    <span className="text-base font-black text-white tracking-wider">{getInitials(companyBranding?.company_name)}</span>
+    <span className="text-base font-black text-white tracking-wider">{getInitials(displayName)}</span>
   );
 
-  const navItems = [
-    // Technician Navigation
-    { href: '/technician', icon: 'dashboard', label: 'Dashboard', roles: ['technician'] },
-    { href: '/tech-jobs', icon: 'clipboard', label: 'My Jobs', roles: ['technician'] },
-    { href: '/tech-completed', icon: 'checkCircle', label: 'Completed Jobs', roles: ['technician'] },
-
-    // Admin & Sales Navigation
-    { href: '/dashboard', icon: 'dashboard', label: 'Dashboard', roles: ['admin', 'sales'] },
-    { href: '/pos', icon: 'cart', label: 'POS & Invoices', roles: ['admin', 'sales'] },
-    { href: '/repairs', icon: 'wrench', label: 'Repair Management', roles: ['admin', 'sales'] },
-    { href: '/sales-purchases', icon: 'receipt', label: 'Sales & Purchases', roles: ['admin', 'sales'] },
-    { href: '/inventory', icon: 'boxes', label: 'Inventory', roles: ['admin', 'sales'] },
-    { href: '/vendors', icon: 'truck', label: 'Vendors', roles: ['admin'] },
-    { href: '/customers', icon: 'users', label: 'Customers', roles: ['admin', 'sales'] },
-    { href: '/whatsapp', icon: 'message', label: 'WhatsApp CRM', roles: ['admin', 'sales'] },
-    { href: '/accounts', icon: 'wallet', label: 'Accounts', roles: ['admin', 'sales'] },
-    { href: '/ledger', icon: 'book', label: 'Ledger', roles: ['admin', 'sales'] },
-    { href: '/expenses', icon: 'banknote', label: 'Expense Management', roles: ['admin', 'sales', 'technician'] },
-    { href: '/reports', icon: 'chart', label: role === 'technician' ? 'My Reports' : 'Reports', roles: ['admin', 'sales', 'technician'] },
-    { href: '/staff', icon: 'userCog', label: 'Staff Management', roles: ['admin'] },
-    { href: '/settings', icon: 'settings', label: 'Settings', roles: ['admin'] },
+  const superAdminNav = [
+    { href: '/super-admin', icon: 'dashboard', label: 'Branch Summary', tab: 'overview' },
+    { href: '/super-admin?tab=branches', icon: 'boxes', label: 'Branch List', tab: 'branches' },
+    { href: '/super-admin/branches/new', icon: 'plus', label: 'Open New Branch', tab: 'new' },
+    { href: '/super-admin?tab=delete_branch', icon: 'trash', label: 'Delete Branch', tab: 'delete_branch' },
+    { href: '/super-admin?tab=reports', icon: 'chart', label: 'Branch Reports', tab: 'reports' },
+    { href: '/super-admin?tab=audit_security', icon: 'shield', label: 'Audit & Security', tab: 'audit_security' },
   ];
 
-  const visibleNav = navItems.filter(item => item.roles.includes(role));
+  const branchAdminNav = [
+    { href: '/dashboard', icon: 'dashboard', label: 'Branch Dashboard' },
+    { href: '/pos', icon: 'cart', label: 'POS & Invoices' },
+    { href: '/repairs', icon: 'wrench', label: 'Repair Management' },
+    { href: '/sales-purchases', icon: 'receipt', label: 'Sales & Purchases' },
+    { href: '/inventory', icon: 'boxes', label: 'Inventory' },
+    { href: '/vendors', icon: 'truck', label: 'Vendors' },
+    { href: '/customers', icon: 'users', label: 'Customers' },
+    { href: '/whatsapp', icon: 'message', label: 'WhatsApp CRM' },
+    { href: '/accounts', icon: 'wallet', label: 'Accounts' },
+    { href: '/ledger', icon: 'book', label: 'Ledger' },
+    { href: '/expenses', icon: 'banknote', label: 'Expense Management' },
+    { href: '/reports', icon: 'chart', label: 'Reports' },
+    { href: '/staff', icon: 'userCog', label: 'Staff Management' },
+    { href: '/settings', icon: 'settings', label: 'Settings' },
+  ];
+
+  const salesNav = [
+    { href: '/dashboard', icon: 'dashboard', label: 'Counter Dashboard' },
+    { href: '/pos', icon: 'cart', label: 'POS & Invoices' },
+    { href: '/repairs', icon: 'wrench', label: 'Repair Intake' },
+    { href: '/sales-purchases', icon: 'receipt', label: 'Sales Orders' },
+    { href: '/inventory', icon: 'boxes', label: 'Stock View' },
+    { href: '/customers', icon: 'users', label: 'Customers' },
+    { href: '/whatsapp', icon: 'message', label: 'WhatsApp' },
+    { href: '/expenses', icon: 'banknote', label: 'Counter Expenses' },
+    { href: '/reports', icon: 'chart', label: 'Sales Reports' },
+  ];
+
+  const techNav = [
+    { href: '/technician', icon: 'dashboard', label: 'Technician Dashboard' },
+    { href: '/tech-jobs', icon: 'clipboard', label: 'My Repair Jobs' },
+    { href: '/tech-completed', icon: 'checkCircle', label: 'Completed Jobs' },
+    { href: '/expenses', icon: 'banknote', label: 'Workshop Expenses' },
+    { href: '/reports', icon: 'chart', label: 'My Reports' },
+  ];
+
+  let visibleNav = [];
+  if (isSuperAdmin) {
+    if (pathname.startsWith('/super-admin') || activePortalView === 'super_admin') {
+      visibleNav = superAdminNav;
+    } else if (activePortalView === 'sales') {
+      visibleNav = salesNav;
+    } else if (activePortalView === 'technician') {
+      visibleNav = techNav;
+    } else {
+      visibleNav = branchAdminNav;
+    }
+  } else if (role === 'admin') {
+    visibleNav = branchAdminNav;
+  } else if (role === 'sales') {
+    visibleNav = salesNav;
+  } else if (role === 'technician') {
+    visibleNav = techNav;
+  } else {
+    visibleNav = [];
+  }
+
+  const currentTab = searchParams ? (searchParams.get('tab') || 'overview') : 'overview';
 
   const handleNavClick = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024 && onClose) {
@@ -70,10 +126,10 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
           <div className="brand-info">
             <h1 className="brand-title">
-              {companyBranding?.company_name || 'iSysware'}
+              {displayName}
             </h1>
             <p className="brand-subtitle">
-              {companyBranding?.tagline || 'Retail & Repair Management'}
+              {brandSubtitle}
             </p>
           </div>
           {/* Close button inside mobile drawer */}
@@ -89,13 +145,25 @@ export default function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Navigation Links */}
+        {/* Section Label */}
         <div className="nav-label">
-          Workspace
+          MENU
         </div>
+
+        {/* Nav Links */}
         <nav className="nav">
           {visibleNav.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            let isActive = false;
+            if (isSuperAdmin && (pathname.startsWith('/super-admin') || activePortalView === 'super_admin')) {
+              if (pathname === '/super-admin/branches/new') {
+                isActive = item.href === '/super-admin/branches/new';
+              } else if (pathname === '/super-admin') {
+                isActive = item.tab === currentTab;
+              }
+            } else {
+              isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            }
+
             return (
               <Link
                 key={item.href}
@@ -129,7 +197,7 @@ export default function Sidebar({ isOpen, onClose }) {
               {user?.name || 'User'}
             </strong>
             <span id="sideUserRole">
-              {role === 'admin' ? 'Admin Portal' : role === 'sales' ? 'Sales Staff Portal' : 'Technician Portal'}
+              {role === 'super_admin' ? 'Platform Super Admin' : role === 'admin' ? 'Branch Admin' : role === 'sales' ? 'Sales Staff Portal' : 'Technician Portal'}
             </span>
           </div>
           <button

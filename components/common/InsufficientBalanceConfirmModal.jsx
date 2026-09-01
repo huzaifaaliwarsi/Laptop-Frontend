@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, X, CheckCircle, Loader2, PlusCircle, ArrowDownCircle, Check, DollarSign, Wallet } from 'lucide-react';
+import { AlertTriangle, X, CheckCircle, Loader2, PlusCircle, ArrowDownCircle, Check, Wallet } from 'lucide-react';
 import Modal from './Modal';
 import { numStr } from '../../utils/formatters';
 import api from '../../services/api';
@@ -49,7 +49,7 @@ export default function InsufficientBalanceConfirmModal({
   const deficit = Math.max(0, req - avail);
   const projectedBalance = avail - req;
   const isNowSufficient = avail >= req - 0.005;
-  const channel = topUpMethod === 'Online' ? 'Online / Bank Account' : 'Cash Drawer';
+  const channel = topUpMethod === 'Online' ? 'Online' : 'Cash Drawer';
 
   const isLoading = isSubmitting || localSubmitting;
 
@@ -63,7 +63,6 @@ export default function InsufficientBalanceConfirmModal({
         await onConfirm();
       }
     } catch (err) {
-      console.error('Confirmation error:', err);
       setErrorMessage(err.message || 'Error processing transaction');
     } finally {
       setLocalSubmitting(false);
@@ -74,7 +73,7 @@ export default function InsufficientBalanceConfirmModal({
     e.preventDefault();
     const amt = parseFloat(topUpAmount || 0);
     if (isNaN(amt) || amt <= 0) {
-      setErrorMessage('Please enter a valid deposit amount greater than 0');
+      setErrorMessage('Enter a valid deposit amount');
       return;
     }
 
@@ -85,7 +84,7 @@ export default function InsufficientBalanceConfirmModal({
         type: 'Deposit',
         method: topUpMethod,
         amount: amt,
-        notes: topUpNotes.trim() || `Quick Top-up in checkout (Added PKR ${amt.toLocaleString('en-PK')})`
+        notes: topUpNotes.trim() || `Quick Top-up (Added PKR ${amt.toLocaleString('en-PK')})`
       });
 
       if (res.success) {
@@ -96,7 +95,7 @@ export default function InsufficientBalanceConfirmModal({
           : avail;
 
         setLiveAvailable(updatedBal);
-        setDepositSuccessMsg(`PKR ${amt.toLocaleString('en-PK')} added to ${topUpMethod}!`);
+        setDepositSuccessMsg(`PKR ${amt.toLocaleString('en-PK')} added!`);
         setShowTopUp(false);
 
         // Notify entire app & sync settings
@@ -116,7 +115,7 @@ export default function InsufficientBalanceConfirmModal({
       isOpen={isOpen}
       onClose={isLoading ? undefined : onClose}
       title={isNowSufficient ? "Balance Verified" : "Insufficient Balance"}
-      subtitle={isNowSufficient ? `Sufficient ${channel} funds available to proceed` : `Available ${channel} balance is below the required payment amount`}
+      subtitle={isNowSufficient ? "Funds available to proceed." : "Available balance is below required amount."}
       zIndex={1000}
       footer={
         <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
@@ -141,7 +140,7 @@ export default function InsufficientBalanceConfirmModal({
                 }}
               >
                 <PlusCircle size={15} color="#059669" />
-                <span>+ Add Cash / Online (Deposit)</span>
+                <span>+ Add Cash / Online</span>
               </button>
             )}
           </div>
@@ -247,18 +246,18 @@ export default function InsufficientBalanceConfirmModal({
             fontWeight: 700
           }}>
             <CheckCircle size={18} color="#10b981" />
-            <span>{depositSuccessMsg} Payment tables & Drawer accounts updated live!</span>
+            <span>{depositSuccessMsg} Drawer updated live!</span>
           </div>
         )}
 
-        {/* Top-up CTA Action Card (Prominently shown if insufficient) */}
+        {/* Top-up CTA Action Card (Original design preserved) */}
         {!isNowSufficient && !showTopUp && (
           <div style={{
             background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
             border: '1.5px solid #93c5fd',
             borderRadius: 10,
             padding: '12px 16px',
-            marginBottom: 16,
+            marginBottom: 14,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -273,7 +272,7 @@ export default function InsufficientBalanceConfirmModal({
                   Need to top-up before paying?
                 </div>
                 <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>
-                  Add PKR {numStr(deficit)} or more to {paymentMethod} without leaving this screen.
+                  Add PKR {numStr(deficit)} or more to {paymentMethod}.
                 </div>
               </div>
             </div>
@@ -297,54 +296,44 @@ export default function InsufficientBalanceConfirmModal({
               }}
             >
               <PlusCircle size={14} />
-              <span>+ Add {paymentMethod} Now</span>
+              <span>+ Add {paymentMethod}</span>
             </button>
           </div>
         )}
 
-        {/* Alert Banner */}
+        {/* Short Alert Banner */}
         {!isNowSufficient ? (
           <div style={{
             display: 'flex',
-            gap: 12,
-            alignItems: 'flex-start',
+            gap: 10,
+            alignItems: 'center',
             background: '#fef9f0',
             border: '1px solid #fde68a',
             borderLeft: '4px solid #f59e0b',
             borderRadius: 8,
-            padding: '12px 14px',
+            padding: '10px 14px',
             marginBottom: 14
           }}>
-            <AlertTriangle size={18} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
-            <div>
-              <div style={{ fontWeight: 700, color: '#92400e', fontSize: 12, marginBottom: 2 }}>
-                Payment exceeds available {channel} balance
-              </div>
-              <div style={{ color: '#b45309', fontSize: 11, lineHeight: 1.4 }}>
-                Available: <strong>PKR {numStr(avail)}</strong> | Required: <strong>PKR {numStr(req)}</strong> (Shortfall: <strong>PKR {numStr(deficit)}</strong>).
-              </div>
+            <AlertTriangle size={17} color="#d97706" style={{ flexShrink: 0 }} />
+            <div style={{ color: '#92400e', fontSize: 12, fontWeight: 600 }}>
+              Available: <strong>PKR {numStr(avail)}</strong> | Required: <strong>PKR {numStr(req)}</strong> (Deficit: <strong>PKR {numStr(deficit)}</strong>)
             </div>
           </div>
         ) : (
           <div style={{
             display: 'flex',
-            gap: 12,
-            alignItems: 'flex-start',
+            gap: 10,
+            alignItems: 'center',
             background: '#f0fdf4',
             border: '1px solid #bbf7d0',
             borderLeft: '4px solid #16a34a',
             borderRadius: 8,
-            padding: '12px 14px',
+            padding: '10px 14px',
             marginBottom: 14
           }}>
-            <CheckCircle size={18} color="#16a34a" style={{ flexShrink: 0, marginTop: 1 }} />
-            <div>
-              <div style={{ fontWeight: 700, color: '#166534', fontSize: 12, marginBottom: 1 }}>
-                Funds Ready: PKR {numStr(avail)} Available
-              </div>
-              <div style={{ color: '#15803d', fontSize: 11 }}>
-                Sufficient funds are now in the {channel} to cover this PKR {numStr(req)} transaction.
-              </div>
+            <CheckCircle size={17} color="#16a34a" style={{ flexShrink: 0 }} />
+            <div style={{ color: '#166534', fontSize: 12, fontWeight: 700 }}>
+              PKR {numStr(avail)} Available (Sufficient funds)
             </div>
           </div>
         )}
@@ -353,30 +342,30 @@ export default function InsufficientBalanceConfirmModal({
         {showTopUp && (
           <div style={{
             background: '#f8fafc',
-            border: '2px solid #2563eb',
+            border: '1.5px solid #2563eb',
             borderRadius: 10,
             padding: '14px 16px',
-            marginBottom: 16,
+            marginBottom: 14,
             boxShadow: '0 4px 14px rgba(37,99,235,0.12)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, color: '#1e3a8a', fontSize: 13 }}>
-                <PlusCircle size={16} color="#2563eb" />
-                <span>Quick Deposit Funds to {topUpMethod} (In-Place)</span>
+                <PlusCircle size={15} color="#2563eb" />
+                <span>Quick Deposit to {topUpMethod}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTopUp(false)}
                 style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                  Deposit Channel
+                  Channel
                 </label>
                 <select
                   className="input"
@@ -385,13 +374,13 @@ export default function InsufficientBalanceConfirmModal({
                   style={{ width: '100%', fontSize: 12, height: 36 }}
                 >
                   <option value="Cash">Cash in Drawer</option>
-                  <option value="Online">Online / Bank Account</option>
+                  <option value="Online">Online / Bank</option>
                 </select>
               </div>
 
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 4 }}>
-                  Deposit Amount (PKR)
+                  Amount (PKR)
                 </label>
                 <input
                   type="number"
@@ -399,19 +388,19 @@ export default function InsufficientBalanceConfirmModal({
                   min="1"
                   value={topUpAmount}
                   onChange={e => setTopUpAmount(e.target.value)}
-                  placeholder={`e.g. ${deficit > 0 ? deficit : 5000}`}
+                  placeholder="Amount"
                   style={{ width: '100%', fontSize: 13, fontWeight: 700, height: 36 }}
                 />
               </div>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 10 }}>
               <input
                 type="text"
                 className="input"
                 value={topUpNotes}
                 onChange={e => setTopUpNotes(e.target.value)}
-                placeholder="Notes (e.g. Owner Cash Top-up, Float)"
+                placeholder="Optional notes (e.g. Float, Owner Cash Top-up)"
                 style={{ width: '100%', fontSize: 11, height: 34 }}
               />
             </div>
@@ -424,7 +413,7 @@ export default function InsufficientBalanceConfirmModal({
                 disabled={depositing}
                 style={{ fontSize: 12 }}
               >
-                Cancel Top-up
+                Cancel
               </button>
               <button
                 type="button"
@@ -444,7 +433,7 @@ export default function InsufficientBalanceConfirmModal({
                 {depositing ? (
                   <>
                     <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                    <span>Depositing to DB...</span>
+                    <span>Depositing...</span>
                   </>
                 ) : (
                   <>
@@ -457,39 +446,37 @@ export default function InsufficientBalanceConfirmModal({
           </div>
         )}
 
-        {/* Breakdown Table */}
+        {/* Breakdown Table (Exact original table design preserved) */}
         <div style={{
           border: '1px solid #e5e7eb',
           borderRadius: 10,
           overflow: 'hidden',
-          marginBottom: 12
+          marginBottom: 10
         }}>
-          {/* Header */}
           <div style={{
             background: '#f8fafc',
             borderBottom: '1px solid #e5e7eb',
-            padding: '8px 14px',
+            padding: '7px 14px',
             fontSize: 11,
             fontWeight: 700,
             color: '#6b7280',
             textTransform: 'uppercase',
             letterSpacing: '0.05em'
           }}>
-            Transaction Financial Summary
+            Financial Summary
           </div>
 
-          {/* Rows */}
           {[
             { label: 'Payment Method', value: paymentMethod, color: '#111827' },
-            { label: 'Required Payment Amount', value: `PKR ${numStr(req)}`, color: '#111827' },
-            { label: 'Available in Drawer / Bank', value: `PKR ${numStr(avail)}`, color: avail <= 0 ? '#dc2626' : '#059669', bold: true },
-            { label: 'Shortfall / Deficit', value: `PKR ${numStr(deficit)}`, color: deficit > 0 ? '#dc2626' : '#059669', bold: true },
+            { label: 'Required Amount', value: `PKR ${numStr(req)}`, color: '#111827' },
+            { label: 'Available Balance', value: `PKR ${numStr(avail)}`, color: avail <= 0 ? '#dc2626' : '#059669', bold: true },
+            { label: 'Deficit', value: `PKR ${numStr(deficit)}`, color: deficit > 0 ? '#dc2626' : '#059669', bold: true },
           ].map((row, i) => (
             <div key={i} style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '9px 14px',
+              padding: '8px 14px',
               borderBottom: '1px solid #f3f4f6',
               background: '#ffffff'
             }}>
@@ -505,7 +492,7 @@ export default function InsufficientBalanceConfirmModal({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '11px 14px',
+            padding: '10px 14px',
             background: projectedBalance < 0 ? '#fef2f2' : '#f0fdf4',
             borderTop: projectedBalance < 0 ? '1.5px dashed #fca5a5' : '1.5px solid #bbf7d0'
           }}>
@@ -513,11 +500,8 @@ export default function InsufficientBalanceConfirmModal({
               <div style={{ fontSize: 12, fontWeight: 700, color: projectedBalance < 0 ? '#991b1b' : '#166534' }}>
                 Balance After Transaction
               </div>
-              <div style={{ fontSize: 10, color: projectedBalance < 0 ? '#b91c1c' : '#15803d' }}>
-                {projectedBalance < 0 ? 'Negative balance will be logged in ledger' : 'Sufficient live funds maintained'}
-              </div>
             </div>
-            <span style={{ fontSize: 15, fontWeight: 900, color: projectedBalance < 0 ? '#b91c1c' : '#15803d', fontFamily: 'monospace' }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: projectedBalance < 0 ? '#b91c1c' : '#15803d', fontFamily: 'monospace' }}>
               PKR {numStr(projectedBalance)}
             </span>
           </div>

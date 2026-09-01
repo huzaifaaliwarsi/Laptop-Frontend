@@ -1,19 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../common/Toast';
 import api from '../../services/api';
+import { useRouter } from 'next/navigation';
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
+  const passwordInputRef = useRef(null);
+
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin');
   const [loading, setLoading] = useState(false);
-  const [companyName, setCompanyName] = useState('Retail & Repair Management');
-  const [tagline, setTagline] = useState('POS, Inventory Management, Sales & Purchases');
-
+  const [companyName, setCompanyName] = useState('Saad Communication');
+  const [tagline, setTagline] = useState('Retail and Repair management system');
 
   useEffect(() => {
     api.get('/settings/company')
@@ -26,24 +29,39 @@ export default function LoginScreen() {
       .catch(() => { });
   }, []);
 
+  const handleQuickSelect = (u, p) => {
+    setUsername(u);
+    setPassword(p);
+    if (passwordInputRef.current) {
+      passwordInputRef.current.focus();
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!username.trim() || !password) {
+      toast('Please enter both username and password.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await login(username, password);
+      const cleanUser = username.trim().toLowerCase();
+      const portal = cleanUser === 'superadmin' ? 'super_admin' : undefined;
+      const res = await login(cleanUser, password, portal);
+      
       if (!res.success) {
-        toast(res.message || 'Login failed', 'error');
+        toast(res.message || 'Invalid username or password', 'error');
+      } else if (res.user?.role === 'super_admin' || cleanUser === 'superadmin') {
+        router.push('/super-admin');
+      } else {
+        router.push('/dashboard');
       }
     } catch (err) {
       toast(err.message || 'Login error occurred', 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickFill = (u, p) => {
-    setUsername(u);
-    setPassword(p);
   };
 
   return (
@@ -102,30 +120,38 @@ export default function LoginScreen() {
             <h2 className="login-welcome-title">Welcome Back!</h2>
             <p className="login-welcome-sub">Sign in to access your designated operational portal.</p>
 
-            {/* Role Quick Fills — compact horizontal row at top */}
+            {/* Quick Access Chips: Super Admin, Admin, Sales, Technician */}
             <div className="login-roles-section-top">
-              <div className="login-roles-label">Quick Access</div>
-              <div className="login-roles-row">
+              <div className="login-roles-label">Quick Access (Testing Mode)</div>
+              <div className="login-roles-row" style={{ flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  className="login-role-chip"
-                  onClick={() => handleQuickFill('admin', 'admin')}
+                  className={`login-role-chip ${username === 'superadmin' ? 'active' : ''}`}
+                  onClick={() => handleQuickSelect('superadmin', 'SuperAdmin@Secure2026!')}
+                >
+                  <span className="login-chip-dot superadmin" />
+                  Super Admin
+                </button>
+                <button
+                  type="button"
+                  className={`login-role-chip ${username === 'admin' ? 'active' : ''}`}
+                  onClick={() => handleQuickSelect('admin', 'admin')}
                 >
                   <span className="login-chip-dot admin" />
                   Admin
                 </button>
                 <button
                   type="button"
-                  className="login-role-chip"
-                  onClick={() => handleQuickFill('sales', 'sales123')}
+                  className={`login-role-chip ${username === 'sales' ? 'active' : ''}`}
+                  onClick={() => handleQuickSelect('sales', 'sales123')}
                 >
                   <span className="login-chip-dot sales" />
                   Sales
                 </button>
                 <button
                   type="button"
-                  className="login-role-chip"
-                  onClick={() => handleQuickFill('tech', 'tech123')}
+                  className={`login-role-chip ${username === 'tech' ? 'active' : ''}`}
+                  onClick={() => handleQuickSelect('tech', 'tech123')}
                 >
                   <span className="login-chip-dot tech" />
                   Technician
@@ -141,7 +167,7 @@ export default function LoginScreen() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. admin, sales, tech"
+                  placeholder="e.g. superadmin, admin, sales, tech"
                   required
                   id="loginUsername"
                 />
@@ -150,6 +176,7 @@ export default function LoginScreen() {
               <div className="login-field">
                 <label className="login-label">Password</label>
                 <input
+                  ref={passwordInputRef}
                   className="login-input"
                   type="password"
                   value={password}
@@ -169,6 +196,7 @@ export default function LoginScreen() {
                 {loading ? 'Authenticating...' : 'Login Now'}
               </button>
             </form>
+
           </div>
         </div>
       </div>

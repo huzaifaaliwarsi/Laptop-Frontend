@@ -25,7 +25,7 @@ function fmtDate(v) {
 }
 
 export default function DashboardPage() {
-  const { user, role } = useAuth();
+  const { user, role, effectiveRole } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,11 +61,12 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading && !data) {
-    return <DashboardSkeleton role={role} />;
-  }
+  const currentRole = effectiveRole || role;
+  const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
-  const isAdmin = role === 'admin';
+  if (loading && !data) {
+    return <DashboardSkeleton role={currentRole} />;
+  }
   const stats = data?.stats || {};
   const recentInvoices = data?.recentInvoices || [];
   const recentRepairs = data?.recentRepairs || [];
@@ -78,10 +79,10 @@ export default function DashboardPage() {
       <div className="hero p-5 rounded-2xl bg-gradient-to-r from-white via-blue-50/40 to-blue-100/40 border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-xl font-bold text-slate-900 tracking-tight m-0">
-            {isAdmin ? 'Super Admin Control Center' : 'Sales & Reception Counter'}
+            {isAdmin ? 'Branch Admin Dashboard' : 'Sales & Reception Counter'}
           </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-xl">
-            Welcome back, <strong>{user?.name || 'Staff'}</strong>. Real-time operations & live metrics from all business sections.
+            Welcome back, <strong>{user?.name || 'Administrator'}</strong>. Real-time operations & live metrics from all business sections.
           </p>
         </div>
         <div className="hero-actions flex gap-2 flex-wrap items-center">

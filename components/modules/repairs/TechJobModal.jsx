@@ -41,7 +41,7 @@ export default function TechJobModal({
   const { toast } = useToast();
   const { role } = useAuth();
   const isTech = role === 'technician';
-  const canViewFinancials = role === 'admin' || role === 'sales';
+  const canViewFinancials = role === 'admin' || role === 'super_admin' || role === 'sales';
 
   const [job, setJob] = useState(null);
   const [repairParts, setRepairParts] = useState([]);

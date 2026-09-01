@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400;1,500;1,700&display=swap');
+@import "tailwindcss";
 
 @theme {
   --color-brand-50: #eff6ff;
@@ -3378,6 +3378,10 @@ table.data-table tbody tr:hover {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.login-chip-dot.superadmin {
+  background-color: #6366f1;
 }
 
 .login-chip-dot.admin {

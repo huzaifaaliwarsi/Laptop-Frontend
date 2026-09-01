@@ -62,8 +62,9 @@ async function apiRequest(endpoint, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   const isGet = method === 'GET';
 
-  // Cache key (always use base endpoint without timestamp)
-  const cacheKey = `${cleanEndpoint}`;
+  // Cache key (always scoped by active branch context to prevent cross-branch bleeding)
+  const activeBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+  const cacheKey = `b_${activeBId}:${cleanEndpoint}`;
 
   // If mutation, invalidate related cache keys
   if (!isGet) {
@@ -105,11 +106,15 @@ async function apiRequest(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  // Get token from localStorage for browser authorization header fallback
+  // Get token and active branch from localStorage
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+    const branchId = localStorage.getItem('activeBranchId');
+    if (branchId && !headers['X-Branch-Id']) {
+      headers['X-Branch-Id'] = String(branchId);
     }
   }
 

@@ -18,9 +18,10 @@ function money(v) {
 }
 
 export default function PosPage() {
-  const { role } = useAuth();
+  const { role, effectiveRole } = useAuth();
   const { toast } = useToast();
-  const isAdmin = role === 'admin';
+  const currentRole = effectiveRole || role;
+  const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
   const [products, setProducts] = useState([]);
   const [heldBills, setHeldBills] = useState([]);
@@ -56,7 +57,7 @@ export default function PosPage() {
       }
       if (hRes.success) setHeldBills(hRes.data || []);
     }).catch(console.error)
-    .finally(() => setLoading(false));
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export default function PosPage() {
                 <span className="pos-type-icon"><Icon name="cart" /></span>
                 <div>
                   <strong>Sales Invoice</strong>
+                  <br />
                   <small>Stock POS Checkout</small>
                 </div>
               </button>
@@ -124,6 +126,7 @@ export default function PosPage() {
                 <span className="pos-type-icon"><Icon name="zap" /></span>
                 <div>
                   <strong>Custom Sale</strong>
+                  <br />
                   <small>Direct Sourced (No Stock)</small>
                 </div>
               </button>
@@ -136,6 +139,7 @@ export default function PosPage() {
                 <span className="pos-type-icon"><Icon name="package" /></span>
                 <div>
                   <strong>Buyback Purchase</strong>
+                  <br />
                   <small>Customer Trade-In</small>
                 </div>
               </button>
@@ -148,6 +152,8 @@ export default function PosPage() {
                 <span className="pos-type-icon"><Icon name="refresh" /></span>
                 <div>
                   <strong>Product Exchange</strong>
+                  <br />
+
                   <small>1-to-1 Trade & Settle</small>
                 </div>
               </button>

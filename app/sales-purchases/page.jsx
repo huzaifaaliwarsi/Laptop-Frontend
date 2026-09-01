@@ -22,9 +22,10 @@ function fmtDate(v) {
 }
 
 export default function SalesPurchasesPage() {
-  const { role } = useAuth();
+  const { role, effectiveRole } = useAuth();
   const { toast } = useToast();
-  const isAdmin = role === 'admin';
+  const currentRole = effectiveRole || role;
+  const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
   const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');

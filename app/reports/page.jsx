@@ -62,7 +62,9 @@ function KPICard({ label, value, sub, accent, loading }) {
         {label}
       </span>
       {loading ? (
-        <div style={{ height: 28, borderRadius: 4, background: '#f1f5f9', animation: 'pulse 1.4s ease-in-out infinite', width: '70%' }} />
+        <div style={{ display: 'flex', alignItems: 'center', height: 28, gap: 8 }}>
+          <div className="loader loader-xs"></div>
+        </div>
       ) : (
         <strong style={{ fontSize: 18, fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>{value}</strong>
       )}
@@ -93,8 +95,9 @@ const TABS = [
 // MAIN PAGE
 // =============================================================================
 export default function ReportsPage() {
-  const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const { role, effectiveRole } = useAuth();
+  const currentRole = effectiveRole || role;
+  const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
   const visibleTabs = TABS.filter(t => !t.adminOnly || isAdmin);
   const [activeTab, setActiveTab] = useState('overview');
@@ -321,73 +324,80 @@ export default function ReportsPage() {
             OVERVIEW TAB
         ============================================================ */}
         {activeTab === 'overview' && (
-          <div style={{ padding: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-
-              {/* Repair section */}
-              <KPICard label="Repair / Diagnosis Revenue" loading={loading}
-                value={money(overview?.rep?.deliveredRevenue)}
-                sub="Final repair and diagnosis invoices" />
-              <KPICard label="Repair Collected" loading={loading}
-                value={money(overview?.rep?.totalPaid)}
-                sub="Initial and installment payments" />
-              <KPICard label="Repair Outstanding" loading={loading}
-                value={money(overview?.rep?.totalOutstanding)}
-                sub="Open customer repair balances"
-                accent={overview?.rep?.totalOutstanding > 0 ? '#dc2626' : undefined} />
-              <KPICard label="Repair Parts COGS" loading={loading}
-                value={money(overview?.pl?.repairCogs)}
-                sub="Cost snapshots on parts used" />
-
-              {/* Cash & Sales */}
-              <KPICard label="Current Cash in Hand" loading={loading}
-                value={money(overview?.cash?.cash?.balance)}
-                sub="All-time cash inflow minus cash outflow"
-                accent={overview?.cash?.cash?.balance < 0 ? '#dc2626' : '#16a34a'} />
-              <KPICard label="Current Online Balance" loading={loading}
-                value={money(overview?.cash?.online?.balance)}
-                sub="All-time online inflow minus online outflow"
-                accent={overview?.cash?.online?.balance < 0 ? '#dc2626' : '#2563eb'} />
-              <KPICard label="Net Product Sales" loading={loading}
-                value={money(overview?.pl?.netProductSales)}
-                sub="Product sales less voided sales" />
-              <KPICard label="Service Sales" loading={loading}
-                value={money(overview?.pl?.serviceSales)}
-                sub="Ready for future Service Invoices" />
-
-              {/* P&L */}
-              <KPICard label="COGS" loading={loading}
-                value={money(overview?.pl?.totalCogs)}
-                sub="Cost of products actually sold"
-                accent="#dc2626" />
-              <KPICard label="Gross Profit" loading={loading}
-                value={money(overview?.pl?.grossProfit)}
-                sub="Revenue less COGS and exchange cost"
-                accent={overview?.pl?.grossProfit >= 0 ? '#16a34a' : '#dc2626'} />
-              <KPICard label="Net Profit" loading={loading}
-                value={money(overview?.pl?.netProfit)}
-                sub="Gross profit less operating expenses"
-                accent={overview?.pl?.netProfit >= 0 ? '#16a34a' : '#dc2626'} />
-              <KPICard label="Receivable / Payable" loading={loading}
-                value={money(overview?.pl?.buybackCost)}
-                sub="Non-cash vendor settlements" />
-
-              {/* Inventory */}
-              <KPICard label="Stock Cost Value" loading={loading}
-                value={money(overview?.inv?.totalCostValue)}
-                sub={`${overview?.inv?.totalUnits || 0} units on hand`} />
-              <KPICard label="Stock Sale Value" loading={loading}
-                value={money(overview?.inv?.totalSaleValue)}
-                sub="At expected sale price" accent="#2563eb" />
-              <KPICard label="Unrealised Margin" loading={loading}
-                value={money(overview?.inv?.totalUnrealisedMargin)}
-                sub="Sale Value − Cost Value" accent="#16a34a" />
-              <KPICard label="Low Stock Items" loading={loading}
-                value={overview?.inv?.lowStockCount ?? '—'}
-                sub="Products below alert threshold"
-                accent={overview?.inv?.lowStockCount > 0 ? '#d97706' : undefined} />
+          loading ? (
+            <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+              <div className="loader"></div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b' }}>Loading overview financial metrics...</span>
             </div>
-          </div>
+          ) : (
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+
+                {/* Repair section */}
+                <KPICard label="Repair / Diagnosis Revenue"
+                  value={money(overview?.rep?.deliveredRevenue)}
+                  sub="Final repair and diagnosis invoices" />
+                <KPICard label="Repair Collected"
+                  value={money(overview?.rep?.totalPaid)}
+                  sub="Initial and installment payments" />
+                <KPICard label="Repair Outstanding"
+                  value={money(overview?.rep?.totalOutstanding)}
+                  sub="Open customer repair balances"
+                  accent={overview?.rep?.totalOutstanding > 0 ? '#dc2626' : undefined} />
+                <KPICard label="Repair Parts COGS"
+                  value={money(overview?.pl?.repairCogs)}
+                  sub="Cost snapshots on parts used" />
+
+                {/* Cash & Sales */}
+                <KPICard label="Current Cash in Hand"
+                  value={money(overview?.cash?.cash?.balance)}
+                  sub="All-time cash inflow minus cash outflow"
+                  accent={overview?.cash?.cash?.balance < 0 ? '#dc2626' : '#16a34a'} />
+                <KPICard label="Current Online Balance"
+                  value={money(overview?.cash?.online?.balance)}
+                  sub="All-time online inflow minus online outflow"
+                  accent={overview?.cash?.online?.balance < 0 ? '#dc2626' : '#2563eb'} />
+                <KPICard label="Net Product Sales"
+                  value={money(overview?.pl?.netProductSales)}
+                  sub="Product sales less voided sales" />
+                <KPICard label="Service Sales"
+                  value={money(overview?.pl?.serviceSales)}
+                  sub="Ready for future Service Invoices" />
+
+                {/* P&L */}
+                <KPICard label="COGS"
+                  value={money(overview?.pl?.totalCogs)}
+                  sub="Cost of products actually sold"
+                  accent="#dc2626" />
+                <KPICard label="Gross Profit"
+                  value={money(overview?.pl?.grossProfit)}
+                  sub="Revenue less COGS and exchange cost"
+                  accent={overview?.pl?.grossProfit >= 0 ? '#16a34a' : '#dc2626'} />
+                <KPICard label="Net Profit"
+                  value={money(overview?.pl?.netProfit)}
+                  sub="Gross profit less operating expenses"
+                  accent={overview?.pl?.netProfit >= 0 ? '#16a34a' : '#dc2626'} />
+                <KPICard label="Receivable / Payable"
+                  value={money(overview?.pl?.buybackCost)}
+                  sub="Non-cash vendor settlements" />
+
+                {/* Inventory */}
+                <KPICard label="Stock Cost Value"
+                  value={money(overview?.inv?.totalCostValue)}
+                  sub={`${overview?.inv?.totalUnits || 0} units on hand`} />
+                <KPICard label="Stock Sale Value"
+                  value={money(overview?.inv?.totalSaleValue)}
+                  sub="At expected sale price" accent="#2563eb" />
+                <KPICard label="Unrealised Margin"
+                  value={money(overview?.inv?.totalUnrealisedMargin)}
+                  sub="Sale Value − Cost Value" accent="#16a34a" />
+                <KPICard label="Low Stock Items"
+                  value={overview?.inv?.lowStockCount ?? '—'}
+                  sub="Products below alert threshold"
+                  accent={overview?.inv?.lowStockCount > 0 ? '#d97706' : undefined} />
+              </div>
+            </div>
+          )
         )}
 
         {/* ============================================================
@@ -395,7 +405,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'sales' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Gross Sales" value={money(tableSummary.grossSales)} sub={`${tableSummary.count} invoices`} />
                 {isAdmin && <KPICard label="Total COGS" value={money(tableSummary.totalCogs)} accent="#dc2626" sub="Cost price snapshots" />}
@@ -424,7 +434,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'purchases' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total Purchases" value={money(tableSummary.totalPurchases)} sub={`${tableSummary.count} invoices`} accent="#dc2626" />
                 <KPICard label="Total Paid" value={money(tableSummary.totalPaid)} accent="#16a34a" />
@@ -452,7 +462,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'vendor-returns' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total Returns" value={tableSummary.count || 0} sub="Items returned to suppliers" />
                 <KPICard label="Total Return Value" value={money(tableSummary.totalReturned)} accent="#dc2626" sub="Stock cost credit" />
@@ -504,7 +514,10 @@ export default function ReportsPage() {
         {activeTab === 'cash-online' && (
           <div style={{ padding: 16 }}>
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading balance data…</div>
+              <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                <div className="loader"></div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b' }}>Loading cash & online financial balances...</span>
+              </div>
             ) : cashData ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
@@ -559,7 +572,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'inventory' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total SKUs" value={tableSummary.totalProducts} sub={`${tableSummary.totalUnits} units`} />
                 <KPICard label="Stock Cost Value" value={money(tableSummary.totalCostValue)} accent="#dc2626" sub="current_stock × cost_price" />
@@ -588,7 +601,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'spare-parts' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Catalog Parts" value={tableSummary.totalParts} sub={`${tableSummary.totalStockUnits} workshop units on hand`} />
                 <KPICard label="Spare Parts Stock Value" value={money(tableSummary.totalCostValue)} accent="#dc2626" sub="In-stock units × cost price" />
@@ -623,7 +636,10 @@ export default function ReportsPage() {
         {activeTab === 'profit-loss' && (
           <div style={{ padding: 16 }}>
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Calculating P&L…</div>
+              <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                <div className="loader"></div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b' }}>Calculating Profit & Loss statement...</span>
+              </div>
             ) : pnlData ? (
               <>
                 {/* Top KPIs */}
@@ -669,7 +685,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'repairs' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total Jobs" value={tableSummary.count} />
                 <KPICard label="Delivered Revenue" value={money(tableSummary.deliveredRevenue)} accent="#16a34a" sub="Delivered & Closed jobs" />
@@ -697,7 +713,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'expenses' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total Expenses" value={money(tableSummary.totalAmount)} accent="#dc2626" sub={`${tableSummary.count} entries`} />
                 <KPICard label="Paid by Cash" value={money(tableSummary.totalCash)} accent="#d97706" />
@@ -721,7 +737,7 @@ export default function ReportsPage() {
         ============================================================ */}
         {activeTab === 'voids-returns' && (
           <>
-            {tableSummary && (
+            {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total Returns" value={tableSummary.totalReturns} />
                 <KPICard label="Return Amount" value={money(tableSummary.totalReturnAmount)} accent="#dc2626" />
@@ -754,6 +770,15 @@ export default function ReportsPage() {
 
 /** Generic report table renderer */
 function ReportTable({ loading, cols, data, emptyMsg }) {
+  if (loading) {
+    return (
+      <div style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, width: '100%' }}>
+        <div className="loader"></div>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b' }}>Loading report records...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrap" style={{ overflowX: 'auto' }}>
       <table>
@@ -767,9 +792,7 @@ function ReportTable({ loading, cols, data, emptyMsg }) {
           </tr>
         </thead>
         <tbody>
-          {loading ? (
-            <TableRowSkeleton cols={cols.length} rows={7} />
-          ) : data.length === 0 ? (
+          {data.length === 0 ? (
             <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>{emptyMsg}</td></tr>
           ) : data.map((row, ri) => (
             <tr key={row.id || ri}>
