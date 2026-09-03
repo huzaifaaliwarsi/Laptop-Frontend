@@ -131,7 +131,7 @@ async function apiRequest(endpoint, options = {}) {
     config.body = JSON.stringify(options.body);
   }
 
-  const executeFetch = async () => {
+  const executeFetch = async (retryCount = 0) => {
     try {
       const response = await fetch(url, config);
       const data = await response.json().catch(() => ({}));
@@ -154,6 +154,12 @@ async function apiRequest(endpoint, options = {}) {
 
       return data;
     } catch (error) {
+      // Auto-retry up to 2 times on brief network interruption / backend nodemon reload
+      const isNetworkError = error.name === 'TypeError' || error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError');
+      if (retryCount < 2 && isNetworkError) {
+        await new Promise(r => setTimeout(r, 500 * (retryCount + 1)));
+        return executeFetch(retryCount + 1);
+      }
       throw error;
     } finally {
       inFlightRequests.delete(cacheKey);

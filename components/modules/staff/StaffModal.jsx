@@ -28,7 +28,7 @@ export default function StaffModal({
         setName(staff.name || '');
         setRole(staff.role || 'sales');
         setDesignation(staff.designation || '');
-        setPhone(staff.phone || '');
+        setPhone(staff.contact || staff.phone || '');
         setPassword('');
         setStatus(staff.status || 'Active');
       } else {
@@ -56,12 +56,14 @@ export default function StaffModal({
 
     setSubmitting(true);
     try {
+      const cleanPhone = phone ? phone.trim() : '';
       const payload = {
         username: username.trim().toLowerCase(),
         name: name.trim(),
         role,
         designation: designation.trim(),
-        phone: phone.trim(),
+        contact: cleanPhone,
+        phone: cleanPhone,
         status
       };
       if (password) {
@@ -75,13 +77,15 @@ export default function StaffModal({
         res = await api.post('/staff', payload);
       }
 
-      if (res.success) {
-        toast(`Staff member ${staff ? 'updated' : 'created'} successfully!`);
+      if (res && res.success) {
+        toast(`Staff member ${staff ? 'updated' : 'created'} successfully!`, 'success');
         onClose();
         if (onSuccess) onSuccess();
+      } else if (res && !res.success) {
+        toast(res.message || 'Error saving staff member', 'error');
       }
     } catch (err) {
-      toast(err.message || 'Error saving staff member', 'error');
+      toast(err.message || 'This user already exists', 'error');
     } finally {
       setSubmitting(false);
     }

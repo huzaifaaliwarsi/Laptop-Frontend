@@ -37,7 +37,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import { notifyBalanceUpdated } from '../../utils/formatters';
-import ManageRepairCategoriesModal from '../../components/common/ManageRepairCategoriesModal';
 import ManageRepairPartsModal from '../../components/modules/repairs/ManageRepairPartsModal';
 import ResetDatabaseModal from '../../components/modules/settings/ResetDatabaseModal';
 
@@ -456,201 +455,93 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Brand Logo Studio */}
-                <div className="field span-12" style={{ marginTop: 6 }}>
-                  <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Image size={15} className="text-blue-600" />
-                      <span>Brand & Store Logo</span>
+                <div className="field span-12" style={{ marginTop: 8 }}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                      <Image size={15} className="text-slate-600" />
+                      <span>Store Brand Logo</span>
                     </span>
-                    <span className="text-2xs text-slate-400 font-normal">Appears in Sidebar, Topbar, Invoices & Receipts</span>
-                  </label>
+                    <span className="text-2xs text-slate-400 font-normal">Invoices, Receipts & Topbar</span>
+                  </div>
 
-                  {/* Drag and Drop Zone */}
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setIsDraggingLogo(true); }}
-                    onDragLeave={() => setIsDraggingLogo(false)}
-                    onDrop={handleLogoDrop}
-                    style={{
-                      border: `2px dashed ${isDraggingLogo ? '#2563eb' : brandingForm.logoData ? '#cbd5e1' : '#94a3b8'}`,
-                      background: isDraggingLogo ? '#eff6ff' : '#f8fafc',
-                      borderRadius: 12,
-                      padding: '16px 20px',
-                      transition: 'all 0.2s ease',
-                      marginTop: 6
-                    }}
-                  >
-                    {!brandingForm.logoData ? (
-                      /* Empty State: Upload Prompt */
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 8, padding: '10px 0' }}>
-                        <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-                          <UploadCloud size={24} />
+                  <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/85 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3 w-full box-border">
+                    {/* Left: Logo Preview & Info */}
+                    <div className="flex items-center gap-3 min-w-0 max-w-full">
+                      {/* Logo Avatar */}
+                      <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-xl border border-slate-200/90 bg-white flex items-center justify-center p-1.5 shrink-0 shadow-xs">
+                        {brandingForm.logoData ? (
+                          <img
+                            src={brandingForm.logoData}
+                            alt="Brand Logo"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-slate-300">
+                            <UploadCloud size={18} />
+                            <span className="text-3xs text-slate-400 mt-0.5">No Logo</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Text details */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-slate-900">
+                            {brandingForm.logoData ? 'Active Brand Logo' : 'Upload Store Logo'}
+                          </span>
+                          {brandingForm.logoData ? (
+                            <span className="text-3xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-3xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                              Optional
+                            </span>
+                          )}
                         </div>
-                        <div>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
-                            Click to upload or drag & drop logo image
-                          </p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>
-                            PNG, JPG, SVG, or WebP (Transparent PNG recommended • Max 5MB)
-                          </p>
-                        </div>
-                        <label
-                          htmlFor="brandLogoInput"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '6px 14px',
-                            background: '#2563eb',
-                            color: '#ffffff',
-                            borderRadius: 8,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            marginTop: 4,
-                            boxShadow: '0 2px 6px rgba(37,99,235,0.25)'
-                          }}
+                        <p className="text-2xs text-slate-500 m-0 mt-0.5 truncate">
+                          {brandingForm.logoData ? 'PNG / JPG / SVG / WebP (HD Display)' : 'PNG, JPG, SVG or WebP • Max 5MB'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right: Theme Action Buttons */}
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
+                      <label
+                        htmlFor="brandLogoInput"
+                        className="btn small primary cursor-pointer"
+                      >
+                        <UploadCloud size={13} />
+                        <span>{brandingForm.logoData ? 'Change Logo' : 'Upload Logo'}</span>
+                      </label>
+                      <input
+                        id="brandLogoInput"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+
+                      {brandingForm.logoData && (
+                        <button
+                          type="button"
+                          onClick={() => setBrandingForm(prev => ({ ...prev, logoData: null }))}
+                          className="btn small danger cursor-pointer"
                         >
-                          <UploadCloud size={14} /> Browse Image
-                        </label>
-                        <input
-                          id="brandLogoInput"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </div>
-                    ) : (
-                      /* Active Logo Present */
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, paddingBottom: 12, borderBottom: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            {/* Checkered background container for alpha transparent logo */}
-                            <div style={{
-                              width: 64,
-                              height: 64,
-                              borderRadius: 10,
-                              border: '1.5px solid #cbd5e1',
-                              background: 'repeating-conic-gradient(#e2e8f0 0% 25%, #ffffff 0% 50%) 50% / 12px 12px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: 4,
-                              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)'
-                            }}>
-                              <img
-                                src={brandingForm.logoData}
-                                alt="Brand Logo"
-                                style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-                              />
-                            </div>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Active Brand Logo</span>
-                                <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '1px 7px', borderRadius: 6 }}>Ready</span>
-                              </div>
-                              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>
-                                Optimized for HD display on Sidebar and Customer Invoices
-                              </p>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <label
-                              htmlFor="brandLogoInput"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '6px 12px',
-                                background: '#ffffff',
-                                border: '1.5px solid #cbd5e1',
-                                color: '#334155',
-                                borderRadius: 8,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <UploadCloud size={13} /> Replace Image
-                            </label>
-                            <input
-                              id="brandLogoInput"
-                              type="file"
-                              accept="image/*"
-                              onChange={handleLogoUpload}
-                              style={{ display: 'none' }}
-                            />
-
-                            <button
-                              type="button"
-                              onClick={() => setBrandingForm(prev => ({ ...prev, logoData: null }))}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                padding: '6px 12px',
-                                background: '#fef2f2',
-                                border: '1.5px solid #fecaca',
-                                color: '#dc2626',
-                                borderRadius: 8,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <Trash2 size={13} /> Remove
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Real-time Mockup Previews */}
-                        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          {/* 1. Sidebar Nav Preview Mockup */}
-                          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <Eye size={12} className="text-blue-600" /> Sidebar Preview
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', padding: '8px 10px', borderRadius: 6, border: '1px solid #f1f5f9' }}>
-                              <div style={{ width: 34, height: 34, borderRadius: 6, background: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }}>
-                                <img src={brandingForm.logoData} alt="Logo" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {brandingForm.companyName || 'Your Store'}
-                                </div>
-                                <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  POS, Inventory & Repair...
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 2. Printed Invoice Preview Mockup */}
-                          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <FileText size={12} className="text-emerald-600" /> Printed Invoice Header
-                            </div>
-                            <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 6, border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                              <img src={brandingForm.logoData} alt="Logo" style={{ maxHeight: 28, maxWidth: 60, objectFit: 'contain' }} />
-                              <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontSize: 11, fontWeight: 900, color: '#0f172a' }}>
-                                  {(brandingForm.companyName || 'YOUR STORE').toUpperCase()}
-                                </div>
-                                <div style={{ fontSize: 9, color: '#64748b' }}>
-                                  {brandingForm.address || 'Store Address, Karachi'}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                          <Trash2 size={13} />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="span-12" style={{ textAlign: 'right', marginTop: 12 }}>
-                  <button type="submit" className="btn primary" disabled={savingBranding}>
+                  <button
+                    type="submit"
+                    className="btn primary cursor-pointer"
+                    disabled={savingBranding}
+                  >
                     {savingBranding ? 'Saving...' : 'Save Branding & Logo'}
                   </button>
                 </div>
@@ -973,104 +864,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Repair Categories Master Configuration */}
-          <div className="panel" style={{ marginTop: 0 }}>
-            <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Wrench size={18} className="text-blue-600" />
-                  <span>Repair Job Categories</span>
-                </h3>
-                <p>Manage device intake categories stored in PostgreSQL database</p>
-              </div>
-              <button
-                type="button"
-                className="btn small soft"
-                onClick={() => setIsRepairCatModalOpen(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <Layers size={13} /> Full Category Manager
-              </button>
-            </div>
-            <div className="panel-body">
-              {/* Quick Add Repair Category */}
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!newRepairCatName.trim()) return;
-                  setSavingRepairCat(true);
-                  try {
-                    const res = await api.post('/categories/repair', {
-                      name: newRepairCatName.trim(),
-                      description: newRepairCatDesc.trim() || null,
-                      isActive: true
-                    });
-                    if (res.success) {
-                      toast(`Repair category "${res.data.name}" added successfully!`);
-                      setNewRepairCatName('');
-                      setNewRepairCatDesc('');
-                      loadRepairCategories();
-                    }
-                  } catch (err) {
-                    toast(err.message || 'Error adding repair category', 'error');
-                  } finally {
-                    setSavingRepairCat(false);
-                  }
-                }}
-                style={{ marginBottom: 14 }}
-              >
-                <div className="form-grid">
-                  <div className="field span-5">
-                    <label>Category Name *</label>
-                    <input
-                      className="input"
-                      value={newRepairCatName}
-                      onChange={(e) => setNewRepairCatName(e.target.value)}
-                      placeholder="e.g. Drone, Gaming Console"
-                      required
-                    />
-                  </div>
-                  <div className="field span-5">
-                    <label>Description</label>
-                    <input
-                      className="input"
-                      value={newRepairCatDesc}
-                      onChange={(e) => setNewRepairCatDesc(e.target.value)}
-                      placeholder="e.g. Handheld & home gaming systems"
-                    />
-                  </div>
-                  <div className="field span-2" style={{ alignSelf: 'end' }}>
-                    <button type="submit" className="btn primary" disabled={savingRepairCat || !newRepairCatName.trim()} style={{ width: '100%' }}>
-                      {savingRepairCat ? 'Adding...' : '+ Add'}
-                    </button>
-                  </div>
-                </div>
-              </form>
 
-              {/* Badges list of active repair categories */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                {repairCategories.map(cat => (
-                  <span
-                    key={cat.id}
-                    className="badge"
-                    style={{
-                      padding: '6px 10px',
-                      fontSize: 12,
-                      background: cat.isActive !== false ? 'var(--blue-50, #eff6ff)' : '#f3f4f6',
-                      color: cat.isActive !== false ? 'var(--primary, #2563eb)' : '#6b7280',
-                      border: '1px solid var(--border)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6
-                    }}
-                  >
-                    <strong>{cat.name}</strong>
-                    <span style={{ fontSize: 10, opacity: 0.7 }}>({cat.repairCount || 0} jobs)</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Repair Spare Parts Inventory Settings Panel */}
@@ -1237,15 +1031,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Repair Categories Modal */}
-      <ManageRepairCategoriesModal
-        isOpen={isRepairCatModalOpen}
-        onClose={() => {
-          setIsRepairCatModalOpen(false);
-          loadRepairCategories();
-        }}
-        onCategoriesUpdated={() => loadRepairCategories()}
-      />
+
 
       {/* Repair Spare Parts Modal */}
       <ManageRepairPartsModal

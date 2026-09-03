@@ -23,16 +23,20 @@ export default function Sidebar({ isOpen, onClose }) {
   const isSuperAdmin = role === 'super_admin';
 
   const isSuperAdminView = isSuperAdmin && (pathname.startsWith('/super-admin') || activePortalView === 'super_admin');
-  const currentBranchName = activeBranch?.branch_name ? activeBranch.branch_name.replace(/\s*\(Main Branch\)\s*/i, '').trim() : null;
+  
+  // Only use companyBranding if it matches the current activeBranch id
+  const isMatchingBranding = companyBranding && String(companyBranding.branchId || '') === String(activeBranch?.id || '');
+  const rawBranchName = activeBranch?.branch_name || (isMatchingBranding ? companyBranding?.company_name : null) || 'Saad Communication';
+  const cleanBranchName = rawBranchName.replace(/\s*\(Main Branch\)\s*/i, '').trim() || 'Saad Communication';
   const displayName = isSuperAdminView
     ? 'Central Platform'
-    : (currentBranchName || companyBranding?.company_name || 'Saad Communication');
+    : cleanBranchName;
 
   const brandSubtitle = isSuperAdminView
     ? 'Master Operations & Multi-Branch'
-    : (activeBranch?.branch_code ? `${activeBranch.branch_code} • POS & Workshop` : (companyBranding?.tagline || 'Retail & Repair Management'));
+    : (activeBranch?.branch_code ? `${activeBranch.branch_code} • POS & Workshop` : ((isMatchingBranding && companyBranding?.tagline) || 'Retail & Repair Management'));
 
-  const brandMarkup = companyBranding?.logo_data ? (
+  const brandMarkup = (isMatchingBranding && companyBranding?.logo_data) ? (
     <img src={companyBranding.logo_data} alt="Logo" className="w-full h-full object-contain" />
   ) : (
     <span className="text-base font-black text-white tracking-wider">{getInitials(displayName)}</span>
@@ -42,7 +46,6 @@ export default function Sidebar({ isOpen, onClose }) {
     { href: '/super-admin', icon: 'dashboard', label: 'Branch Summary', tab: 'overview' },
     { href: '/super-admin?tab=branches', icon: 'boxes', label: 'Branch List', tab: 'branches' },
     { href: '/super-admin/branches/new', icon: 'plus', label: 'Open New Branch', tab: 'new' },
-    { href: '/super-admin?tab=delete_branch', icon: 'trash', label: 'Delete Branch', tab: 'delete_branch' },
     { href: '/super-admin?tab=reports', icon: 'chart', label: 'Branch Reports', tab: 'reports' },
     { href: '/super-admin?tab=audit_security', icon: 'shield', label: 'Audit & Security', tab: 'audit_security' },
   ];

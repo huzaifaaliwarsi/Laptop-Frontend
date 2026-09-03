@@ -17,6 +17,7 @@ export default function ProgressLoader({
 }) {
   const content = (
     <div
+      suppressHydrationWarning
       className={`loader-container ${className}`}
       style={{
         display: 'flex',

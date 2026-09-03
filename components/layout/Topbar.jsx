@@ -96,10 +96,10 @@ export default function Topbar({ onToggleMenu }) {
               {/* Operating Status Badge */}
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs font-bold shadow-xs select-none"
-                title={`Platform Super Admin active operational scope in ${activeBranch?.branch_name || 'Branch'}`}
+                title={`Platform Super Admin active operational scope in ${activeBranch?.branch_name || companyBranding?.company_name || 'Branch'}`}
               >
                 <ShieldCheck size={14} className="text-amber-600" />
-                <span>Super Admin — Operating in {activeBranch?.branch_code || 'BR-01'}</span>
+                <span>Super Admin — Operating in {activeBranch?.branch_name || activeBranch?.branch_code || 'Saad Communication'}</span>
               </div>
 
               {/* Return to Super Admin Button */}
@@ -124,7 +124,7 @@ export default function Topbar({ onToggleMenu }) {
             title="Current Active Branch Database Scope"
           >
             <Building2 size={14} className="text-blue-600" />
-            <span>{activeBranch?.branch_code || 'BR-01'}: {activeBranch?.branch_name || 'Main Branch (Branch 1)'}</span>
+            <span>{activeBranch?.branch_code || 'BR-01'}: {activeBranch?.branch_name || 'Saad Communication'}</span>
           </div>
         )}
       </div>

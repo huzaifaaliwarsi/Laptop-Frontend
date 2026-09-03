@@ -6,8 +6,31 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const ToastContext = createContext(null);
 
+// In-memory debounce cache to prevent duplicate toasts for identical messages within 2.5 seconds
+const recentToasts = new Map();
+
 export const showToast = (message, type = 'success', options = {}) => {
+  if (!message) return;
+
+  const strMsg = String(message).trim();
+  const now = Date.now();
+  const lastTime = recentToasts.get(strMsg);
+
+  // If the same toast message was triggered within the last 2500ms, suppress duplicate
+  if (lastTime && now - lastTime < 2500) {
+    return;
+  }
+  recentToasts.set(strMsg, now);
+
+  // Periodic cleanup of old keys
+  if (recentToasts.size > 50) {
+    for (const [k, t] of recentToasts.entries()) {
+      if (now - t > 5000) recentToasts.delete(k);
+    }
+  }
+
   const config = {
+    toastId: options.toastId || strMsg,
     position: 'top-right',
     autoClose: 3200,
     hideProgressBar: false,
@@ -48,11 +71,12 @@ export function ToastProvider({ children }) {
       <ToastContainer
         position="top-right"
         autoClose={3200}
+        limit={3}
         hideProgressBar={false}
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
         draggable
         pauseOnHover
         theme="colored"

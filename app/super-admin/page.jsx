@@ -50,6 +50,94 @@ function fmtDate(v) {
   }
 }
 
+function getAuditActionBadge(action) {
+  switch (action) {
+    case 'SUPER_ADMIN_PASSWORD_CHANGED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+          <Key size={12} className="text-blue-600" />
+          <span>Master Password Changed</span>
+        </span>
+      );
+    case 'BRANCH_ADMIN_PASSWORD_RESET':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+          <UserCheck size={12} className="text-amber-600" />
+          <span>Manager Password Reset</span>
+        </span>
+      );
+    case 'BRANCH_METADATA_UPDATED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+          <Edit3 size={12} className="text-slate-600" />
+          <span>Branch Profile Updated</span>
+        </span>
+      );
+    case 'BRANCH_PROVISIONED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+          <PlusCircle size={12} className="text-emerald-600" />
+          <span>New Branch Created</span>
+        </span>
+      );
+    case 'BRANCH_PERMANENTLY_DELETED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+          <Trash2 size={12} className="text-rose-600" />
+          <span>Branch Purged</span>
+        </span>
+      );
+    case 'TOGGLE_BRANCH_STATUS':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+          <Power size={12} className="text-indigo-600" />
+          <span>Branch Status Changed</span>
+        </span>
+      );
+    case 'AUDIT_LOGS_INITIALIZED':
+    case 'AUDIT_LOGS_PURGED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
+          <Shield size={12} className="text-purple-600" />
+          <span>Audit History Cleared</span>
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs">
+          <Activity size={12} className="text-slate-500" />
+          <span>{action ? action.replace(/_/g, ' ') : 'System Event'}</span>
+        </span>
+      );
+  }
+}
+
+function formatAuditDetails(details) {
+  if (!details) return '—';
+  let d = details;
+  if (typeof d === 'string') {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return d;
+    }
+  }
+  if (typeof d !== 'object') return String(d);
+
+  if (d.note) return d.note;
+  if (d.action === 'master_password_updated') return 'Super Admin master password was updated.';
+  if (d.branchCode && d.branchName) return `Target Branch: ${d.branchCode} (${d.branchName})`;
+  if (d.city || d.email || d.phone) {
+    const parts = [];
+    if (d.city) parts.push(`City: ${d.city}`);
+    if (d.phone) parts.push(`Phone: ${d.phone}`);
+    if (d.email) parts.push(`Email: ${d.email}`);
+    return parts.join(' • ') || 'Branch details modified';
+  }
+  if (d.dbName) return `Database: ${d.dbName}`;
+  return JSON.stringify(d);
+}
+
 function StatCard({ label, value, sub, icon, badge, loading }) {
   return (
     <div className="stat bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs relative overflow-hidden transition-all hover:shadow-xs">
@@ -84,12 +172,14 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams ? searchParams.get('tab') : null;
-  const activeTab = (tabParam && ['overview', 'branches', 'delete_branch', 'reports', 'audit_security'].includes(tabParam)) ? tabParam : 'overview';
+  const activeTab = (tabParam && ['overview', 'branches', 'reports', 'audit_security'].includes(tabParam)) ? tabParam : 'overview';
 
   const [loading, setLoading] = useState(true);
-  const [reportData, setReportData] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [platformData, setPlatformData] = useState(null);
+  const [summaryData, setSummaryData] = useState(null);
 
-  // Filters
+  // Filters (Scoped strictly to Superadmin Summary Page)
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [dateFilter, setDateFilter] = useState('all_time');
   const [fromDate, setFromDate] = useState('');
@@ -97,6 +187,8 @@ export default function SuperAdminPage() {
 
   // Modals
   const [viewDetailsBranch, setViewDetailsBranch] = useState(null);
+  const [loadingBranchDetails, setLoadingBranchDetails] = useState(false);
+  const [branchDetailsError, setBranchDetailsError] = useState(null);
   const [resetModalBranch, setResetModalBranch] = useState(null);
   const [newAdminPass, setNewAdminPass] = useState('');
   const [savingPass, setSavingPass] = useState(false);
@@ -116,6 +208,7 @@ export default function SuperAdminPage() {
   // Audit Logs & Admins
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [clearingLogs, setClearingLogs] = useState(false);
   const [branchAdminsList, setBranchAdminsList] = useState([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
 
@@ -132,8 +225,24 @@ export default function SuperAdminPage() {
     }
   }, [role, router, toast]);
 
-  const loadConsolidatedReport = useCallback(async () => {
+  // Master platform data loader (Always queries all branches to support Branch List, Reports, and Dropdown options)
+  const loadPlatformData = useCallback(async () => {
     setLoading(true);
+    try {
+      const res = await api.get('/super-admin/reports/consolidated?branchId=all');
+      if (res.success && res.data) {
+        setPlatformData(res.data);
+      }
+    } catch (err) {
+      toast(err.message || 'Error loading platform report', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  // Summary-specific report loader (Applies branch filter & date filters strictly for Summary page cards)
+  const loadSummaryData = useCallback(async () => {
+    setSummaryLoading(true);
     try {
       let from = null;
       let to = null;
@@ -158,17 +267,21 @@ export default function SuperAdminPage() {
 
       const res = await api.get(`/super-admin/reports/consolidated?${params.toString()}`);
       if (res.success && res.data) {
-        setReportData(res.data);
+        setSummaryData(res.data);
       }
     } catch (err) {
-      toast(err.message || 'Error loading platform report', 'error');
+      toast(err.message || 'Error loading summary metrics', 'error');
     } finally {
-      setLoading(false);
+      setSummaryLoading(false);
     }
   }, [selectedBranch, dateFilter, fromDate, toDate, toast]);
 
+  const reloadAllData = useCallback(async () => {
+    await Promise.all([loadPlatformData(), loadSummaryData()]);
+  }, [loadPlatformData, loadSummaryData]);
+
   const handleRefresh = async () => {
-    await loadConsolidatedReport();
+    await reloadAllData();
     if (activeTab === 'audit_security') {
       await loadAuditLogs();
       await loadBranchAdmins();
@@ -179,12 +292,30 @@ export default function SuperAdminPage() {
   const loadAuditLogs = async () => {
     setLoadingLogs(true);
     try {
-      const res = await api.get('/super-admin/audit-logs?limit=50');
+      const res = await api.get('/super-admin/audit-logs?limit=50', { noCache: true });
       if (res.success) setAuditLogs(res.data || []);
     } catch (err) {
       toast(err.message || 'Error loading audit logs', 'error');
     } finally {
       setLoadingLogs(false);
+    }
+  };
+
+  const handleClearAuditLogs = async () => {
+    if (!confirm('Are you sure you want to clear all master audit logs? This will purge existing log records.')) return;
+    setClearingLogs(true);
+    try {
+      const res = await api.delete('/super-admin/audit-logs');
+      if (res && res.success) {
+        toast(res.message || 'Audit logs cleared successfully.', 'success');
+        await loadAuditLogs();
+      } else {
+        toast(res?.message || 'Failed to clear audit logs.', 'error');
+      }
+    } catch (err) {
+      toast(err.message || 'Failed to clear audit logs.', 'error');
+    } finally {
+      setClearingLogs(false);
     }
   };
 
@@ -202,9 +333,15 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     if (role === 'super_admin') {
-      loadConsolidatedReport();
+      loadPlatformData();
     }
-  }, [role, loadConsolidatedReport]);
+  }, [role, loadPlatformData]);
+
+  useEffect(() => {
+    if (role === 'super_admin' && activeTab === 'overview') {
+      loadSummaryData();
+    }
+  }, [role, activeTab, loadSummaryData]);
 
   useEffect(() => {
     if (activeTab === 'audit_security') {
@@ -221,7 +358,7 @@ export default function SuperAdminPage() {
       const res = await api.patch(`/super-admin/branches/${branchId}/status`, { status: newStatus });
       if (res.success) {
         toast(`Branch status updated to ${newStatus}`);
-        loadConsolidatedReport();
+        reloadAllData();
       }
     } catch (err) {
       toast(err.message || 'Error updating status', 'error');
@@ -229,21 +366,69 @@ export default function SuperAdminPage() {
   };
 
   const handleLoginAsAdmin = (branch) => {
-    if (!branch || !branch.branchId) return;
+    const bId = branch?.branchId || branch?.id;
+    if (!bId) return;
     // switchBranch handles: localStorage, cache clear, activeBranch state, and navigation to /dashboard
-    switchBranch(branch.branchId);
+    switchBranch(bId);
+  };
+
+  const handleOpenViewDetails = async (branch) => {
+    const bId = branch?.branchId || branch?.id;
+    if (!bId) return;
+
+    // Set initial skeleton/context while fetching fresh live data from database
+    setViewDetailsBranch({
+      branchId: bId,
+      branchCode: branch.branchCode || branch.branch_code || 'N/A',
+      branchName: branch.branchName || branch.branch_name || 'N/A',
+      status: branch.status || 'N/A',
+      city: branch.city || 'N/A',
+      address: branch.address || 'N/A',
+      phone: branch.phone || 'N/A',
+      email: branch.email || 'N/A',
+      adminName: branch.adminName || branch.admin_name || 'N/A',
+      adminUsername: branch.adminUsername || branch.admin_username || 'N/A',
+      createdAt: branch.createdAt || branch.created_at || null
+    });
+    setLoadingBranchDetails(true);
+    setBranchDetailsError(null);
+
+    try {
+      const res = await api.get(`/super-admin/branches/${bId}`);
+      if (res.success && res.data) {
+        setViewDetailsBranch(res.data);
+      } else {
+        setBranchDetailsError(res.message || 'Failed to load branch records from database.');
+      }
+    } catch (err) {
+      setBranchDetailsError(err.message || 'Error fetching branch records from database.');
+    } finally {
+      setLoadingBranchDetails(false);
+    }
   };
 
   const handleOpenDeleteModal = async (branch) => {
-    setDeleteModalBranch(branch);
+    if (!branch) return;
+    const bId = branch.branchId || branch.id;
+    const bCode = branch.branchCode || branch.branch_code || `BR-0${bId}`;
+    const bName = branch.branchName || branch.branch_name || 'Branch';
+
+    const normalized = {
+      ...branch,
+      branchId: bId,
+      branchCode: bCode,
+      branchName: bName
+    };
+
+    setDeleteModalBranch(normalized);
     setTypedBranchCode('');
     setSuperAdminPass('');
     setDeleteSafetyData(null);
     setLoadingSafety(true);
 
     try {
-      const res = await api.get(`/super-admin/branches/${branch.branchId}/safety-check`);
-      if (res.success && res.data) {
+      const res = await api.get(`/super-admin/branches/${bId}/safety-check`);
+      if (res && res.success && res.data) {
         setDeleteSafetyData(res.data);
       }
     } catch (err) {
@@ -255,13 +440,19 @@ export default function SuperAdminPage() {
 
   const handleExecuteDeleteBranch = async (actionType = 'purge') => {
     if (!deleteModalBranch) return;
+    const bId = deleteModalBranch.branchId || deleteModalBranch.id;
+    const bCode = (deleteModalBranch.branchCode || deleteModalBranch.branch_code || '').trim();
 
     if (actionType === 'purge') {
-      if (typedBranchCode.trim().toUpperCase() !== deleteModalBranch.branchCode.trim().toUpperCase()) {
-        toast(`Please type exact branch code "${deleteModalBranch.branchCode}" to confirm.`, 'error');
+      if (!typedBranchCode || !typedBranchCode.trim()) {
+        toast(`Please type branch code "${bCode}" to confirm deletion.`, 'error');
         return;
       }
-      if (!superAdminPass) {
+      if (typedBranchCode.trim().toUpperCase() !== bCode.toUpperCase()) {
+        toast(`Branch code mismatch! You typed "${typedBranchCode.trim()}", but required code is "${bCode}".`, 'error');
+        return;
+      }
+      if (!superAdminPass || !superAdminPass.trim()) {
         toast('Please enter your Super Admin password to authorize deletion.', 'error');
         return;
       }
@@ -270,16 +461,18 @@ export default function SuperAdminPage() {
     setDeletingBranch(true);
     try {
       const payload = {
-        confirmBranchCode: deleteModalBranch.branchCode,
+        confirmBranchCode: bCode,
         superAdminPassword: superAdminPass,
         action: actionType
       };
 
-      const res = await api.post(`/super-admin/branches/${deleteModalBranch.branchId}/delete`, payload);
-      if (res.success) {
-        toast(res.message || 'Branch processed successfully.');
+      const res = await api.post(`/super-admin/branches/${bId}/delete`, payload);
+      if (res && res.success) {
+        toast(res.message || 'Branch processed successfully.', 'success');
         setDeleteModalBranch(null);
-        loadConsolidatedReport();
+        await reloadAllData();
+      } else {
+        toast(res?.message || 'Branch deletion failed.', 'error');
       }
     } catch (err) {
       toast(err.message || 'Branch deletion failed.', 'error');
@@ -298,7 +491,7 @@ export default function SuperAdminPage() {
       if (res.success) {
         toast('Branch profile updated successfully');
         setEditModalBranch(null);
-        loadConsolidatedReport();
+        reloadAllData();
       }
     } catch (err) {
       toast(err.message || 'Error updating profile', 'error');
@@ -363,8 +556,11 @@ export default function SuperAdminPage() {
     }
   };
 
-  const { combined = {}, branches = [] } = reportData || {};
-  const isMaxReached = (branches.length >= 2);
+  const masterBranches = platformData?.branches || [];
+  const platformBranches = masterBranches.length > 0 ? masterBranches : (platformData?.allBranches || summaryData?.allBranches || []);
+  const isMaxReached = (platformBranches.length >= 2);
+  const summaryCombined = summaryData?.combined || platformData?.combined || {};
+  const masterCombined = platformData?.combined || {};
 
   return (
     <div className="space-y-4">
@@ -417,18 +613,20 @@ export default function SuperAdminPage() {
         </div>
       </div>
 
-      {/* Filter Bar (for Summary and Reports) */}
-      {(activeTab === 'overview' || activeTab === 'reports') && (
+      {/* Filter Bar (strictly scoped to Superadmin Summary page only) */}
+      {activeTab === 'overview' && (
         <div className="panel p-4">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <Sliders size={14} className="text-slate-500" />
               <strong className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Scope & Date Filters
+                Summary Scope & Date Filters
               </strong>
             </div>
             <span className="badge success text-2xs">
-              {selectedBranch === 'all' ? 'Scope: All Branches Combined' : `Scope: Branch ${selectedBranch}`}
+              {selectedBranch === 'all'
+                ? 'Scope: All Branches Combined'
+                : `Scope: ${platformBranches.find(b => String(b.branchId) === String(selectedBranch))?.branchCode || `Branch ${selectedBranch}`}`}
             </span>
           </div>
 
@@ -437,7 +635,7 @@ export default function SuperAdminPage() {
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">Branch Scope</label>
               <select className="input" value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)}>
                 <option value="all">All Branches (Combined)</option>
-                {branches.map(b => (
+                {platformBranches.map(b => (
                   <option key={b.branchId} value={String(b.branchId)}>
                     {b.branchCode}: {b.branchName}
                   </option>
@@ -490,35 +688,35 @@ export default function SuperAdminPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             <StatCard
               label="TOTAL SALES REVENUE"
-              value={money(combined.totalSales)}
+              value={money(summaryCombined.totalSales)}
               sub="Gross retail sales volume"
-              badge={`${combined.salesCount || 0} Bills`}
+              badge={`${summaryCombined.salesCount || 0} Bills`}
               icon="receipt"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="GROSS PROFIT"
-              value={money(combined.grossProfit)}
-              sub={`COGS: ${money(combined.totalCogs)}`}
-              badge={`Margin: ${combined.grossMarginPercent || 0}%`}
+              value={money(summaryCombined.grossProfit)}
+              sub={`COGS: ${money(summaryCombined.totalCogs)}`}
+              badge={`Margin: ${summaryCombined.grossMarginPercent || 0}%`}
               icon="chart"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="NET PROFIT"
-              value={money(combined.netProfit)}
+              value={money(summaryCombined.netProfit)}
               sub="After all operating expenses"
-              badge={`Net: ${combined.netMarginPercent || 0}%`}
+              badge={`Net: ${summaryCombined.netMarginPercent || 0}%`}
               icon="wallet"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="OPERATING EXPENSES"
-              value={money(combined.totalExpenses)}
-              sub={`Cash: ${money(combined.cashExpenses)}`}
-              badge={`Bank: ${money(combined.onlineExpenses)}`}
+              value={money(summaryCombined.totalExpenses)}
+              sub={`Cash: ${money(summaryCombined.cashExpenses)}`}
+              badge={`Bank: ${money(summaryCombined.onlineExpenses)}`}
               icon="banknote"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
           </div>
 
@@ -526,35 +724,35 @@ export default function SuperAdminPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             <StatCard
               label="REPAIR REVENUE"
-              value={money(combined.repairRevenue)}
+              value={money(summaryCombined.repairRevenue)}
               sub="Delivered & closed repairs"
-              badge={`${combined.activeRepairs || 0} Active`}
+              badge={`${summaryCombined.activeRepairs || 0} Active`}
               icon="wrench"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="CASH IN DRAWER"
-              value={money(combined.cashInDrawer)}
+              value={money(summaryCombined.cashInDrawer)}
               sub="Physical registers cash"
               badge="Ready Cash"
               icon="wallet"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="ONLINE / BANK BALANCE"
-              value={money(combined.onlineBalance)}
+              value={money(summaryCombined.onlineBalance)}
               sub="Digital & bank accounts"
               badge="Bank Liquidity"
               icon="monitor"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="INVENTORY VALUATION"
-              value={money(combined.stockCostValue)}
-              sub={`${combined.totalStockItems || 0} stock units`}
-              badge={combined.lowStockCount > 0 ? `${combined.lowStockCount} Low Stock` : 'Healthy'}
+              value={money(summaryCombined.stockCostValue)}
+              sub={`${summaryCombined.totalStockItems || 0} stock units`}
+              badge={summaryCombined.lowStockCount > 0 ? `${summaryCombined.lowStockCount} Low Stock` : 'Healthy'}
               icon="boxes"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
           </div>
 
@@ -562,19 +760,19 @@ export default function SuperAdminPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <StatCard
               label="CUSTOMER RECEIVABLES (UDHAAR)"
-              value={money(combined.customerReceivables)}
+              value={money(summaryCombined.customerReceivables)}
               sub="Pending customer balances across all accounts"
               badge="Outstanding"
               icon="users"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
             <StatCard
               label="VENDOR PAYABLES"
-              value={money(combined.vendorPayables)}
+              value={money(summaryCombined.vendorPayables)}
               sub="Pending supplier invoices and purchase balances"
               badge="Liabilities"
               icon="truck"
-              loading={loading}
+              loading={loading || summaryLoading}
             />
           </div>
         </div>
@@ -594,14 +792,14 @@ export default function SuperAdminPage() {
                 </p>
               </div>
               <span className="badge primary text-2xs">
-                {branches.length} / 2 Provisioned Branches
+                {platformBranches.length} / 2 Provisioned Branches
               </span>
             </div>
           </div>
 
           {/* Clean Modern Branch Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {branches.map(b => (
+            {masterBranches.map(b => (
               <div
                 key={b.branchId}
                 className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-4 transition-all hover:border-slate-300 hover:shadow-sm"
@@ -624,7 +822,7 @@ export default function SuperAdminPage() {
                     <button
                       type="button"
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                      onClick={() => setViewDetailsBranch(b)}
+                      onClick={() => handleOpenViewDetails(b)}
                     >
                       <Eye size={13} className="text-slate-500" />
                       <span>View</span>
@@ -678,70 +876,6 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* ── 3. DEDICATED DELETE BRANCH VIEW ── */}
-      {activeTab === 'delete_branch' && (
-        <div className="space-y-4">
-          <div className="panel p-5 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 m-0">
-                  Branch Decommission & Deletion
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Permanently remove or decommission secondary branch database infrastructure.
-                </p>
-              </div>
-              <span className="badge text-2xs bg-red-50 text-red-700 border border-red-200">
-                Super Admin Master Control
-              </span>
-            </div>
-
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Branch Code</th>
-                    <th>Branch Name</th>
-                    <th>City</th>
-                    <th>Manager</th>
-                    <th>Status</th>
-                    <th className="text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {branches.map(b => {
-                    const isSoleBranch = branches.length <= 1;
-                    return (
-                      <tr key={b.branchId}>
-                        <td><span className="badge primary font-bold text-2xs">{b.branchCode}</span></td>
-                        <td><strong>{b.branchName}</strong></td>
-                        <td>{b.city || '—'}</td>
-                        <td>{b.adminName || 'Manager'} (<code>{b.adminUsername || 'admin'}</code>)</td>
-                        <td>
-                          <span className={`badge ${b.status === 'Active' ? 'success' : 'danger'} text-2xs`}>
-                            {b.status}
-                          </span>
-                        </td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/80 inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                            onClick={() => handleOpenDeleteModal(b)}
-                          >
-                            <Trash2 size={13} />
-                            <span>Delete Branch</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── 4. BRANCH REPORTS VIEW ── */}
       {activeTab === 'reports' && (
         <div className="panel p-5 space-y-4">
@@ -759,7 +893,7 @@ export default function SuperAdminPage() {
               <thead>
                 <tr>
                   <th className="text-left">Financial / Operational KPI</th>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <th key={b.branchId} className="text-right">
                       {b.branchCode}: {b.branchName}
                     </th>
@@ -772,112 +906,112 @@ export default function SuperAdminPage() {
               <tbody>
                 <tr>
                   <td className="font-semibold">1. Total Sales Revenue</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.totalSales)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.totalSales)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.totalSales)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">2. Invoice Count</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{b.salesCount || 0} bills</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{combined.salesCount || 0} bills</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{masterCombined.salesCount || 0} bills</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">3. Repair Revenue</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.repairRevenue)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.repairRevenue)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.repairRevenue)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">4. Active Repairs</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{b.activeRepairs || 0} jobs</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{combined.activeRepairs || 0} jobs</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{masterCombined.activeRepairs || 0} jobs</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">5. COGS (Cost of Goods)</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right text-red-600">{money(b.totalCogs)}</td>
                   ))}
-                  <td className="text-right font-bold text-red-600 bg-emerald-50/60">{money(combined.totalCogs)}</td>
+                  <td className="text-right font-bold text-red-600 bg-emerald-50/60">{money(masterCombined.totalCogs)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">6. Gross Profit</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right text-emerald-700 font-bold">
                       {money(b.grossProfit)} ({b.grossMarginPercent}%)
                     </td>
                   ))}
                   <td className="text-right font-bold text-emerald-700 bg-emerald-50/60">
-                    {money(combined.grossProfit)} ({combined.grossMarginPercent}%)
+                    {money(masterCombined.grossProfit)} ({masterCombined.grossMarginPercent}%)
                   </td>
                 </tr>
                 <tr>
                   <td className="font-semibold">7. Operating Expenses</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right text-amber-700">{money(b.totalExpenses)}</td>
                   ))}
-                  <td className="text-right font-bold text-amber-700 bg-emerald-50/60">{money(combined.totalExpenses)}</td>
+                  <td className="text-right font-bold text-amber-700 bg-emerald-50/60">{money(masterCombined.totalExpenses)}</td>
                 </tr>
                 <tr className="bg-slate-50 font-bold">
                   <td>8. Net Profit</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className={`text-right ${b.netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                       {money(b.netProfit)} ({b.netMarginPercent}%)
                     </td>
                   ))}
-                  <td className={`text-right bg-emerald-50/90 ${combined.netProfit >= 0 ? 'text-emerald-800' : 'text-red-600'}`}>
-                    {money(combined.netProfit)} ({combined.netMarginPercent}%)
+                  <td className={`text-right bg-emerald-50/90 ${masterCombined.netProfit >= 0 ? 'text-emerald-800' : 'text-red-600'}`}>
+                    {money(masterCombined.netProfit)} ({masterCombined.netMarginPercent}%)
                   </td>
                 </tr>
                 <tr>
                   <td className="font-semibold">9. Cash in Drawer</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.cashInDrawer)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.cashInDrawer)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.cashInDrawer)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">10. Online Bank Balance</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.onlineBalance)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.onlineBalance)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.onlineBalance)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">11. Customer Receivables</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.customerReceivables)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.customerReceivables)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.customerReceivables)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">12. Vendor Payables</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.vendorPayables)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.vendorPayables)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.vendorPayables)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">13. Stock Valuation</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className="text-right">{money(b.stockCostValue)}</td>
                   ))}
-                  <td className="text-right font-bold bg-emerald-50/60">{money(combined.stockCostValue)}</td>
+                  <td className="text-right font-bold bg-emerald-50/60">{money(masterCombined.stockCostValue)}</td>
                 </tr>
                 <tr>
                   <td className="font-semibold">14. Low Stock SKUs</td>
-                  {branches.map(b => (
+                  {masterBranches.map(b => (
                     <td key={b.branchId} className={`text-right ${b.lowStockCount > 0 ? 'text-red-600 font-bold' : ''}`}>
                       {b.lowStockCount || 0} items
                     </td>
                   ))}
-                  <td className={`text-right font-bold bg-emerald-50/60 ${combined.lowStockCount > 0 ? 'text-red-600' : ''}`}>
-                    {combined.lowStockCount || 0} items
+                  <td className={`text-right font-bold bg-emerald-50/60 ${masterCombined.lowStockCount > 0 ? 'text-red-600' : ''}`}>
+                    {masterCombined.lowStockCount || 0} items
                   </td>
                 </tr>
               </tbody>
@@ -891,19 +1025,33 @@ export default function SuperAdminPage() {
         <div className="space-y-5">
           {/* Master Audit Trail */}
           <div className="panel p-5 space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 m-0">Immutable Master Audit Logs</h3>
+                <h3 className="text-sm font-bold text-slate-900 m-0">Master Security Audit Logs</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Central security audit events recorded directly in master database.</p>
               </div>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1.5 cursor-pointer"
-                onClick={loadAuditLogs}
-                disabled={loadingLogs}
-              >
-                <RefreshCw size={12} className={loadingLogs ? 'animate-spin' : ''} /> Refresh Logs
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+                  onClick={loadAuditLogs}
+                  disabled={loadingLogs || clearingLogs}
+                >
+                  <RefreshCw size={12} className={loadingLogs ? 'animate-spin' : ''} />
+                  <span>Refresh Logs</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+                  onClick={handleClearAuditLogs}
+                  disabled={clearingLogs || loadingLogs}
+                  title="Purge audit logs history"
+                >
+                  <Trash2 size={12} className={clearingLogs ? 'animate-spin' : 'text-rose-600'} />
+                  <span>{clearingLogs ? 'Clearing...' : 'Delete Logs'}</span>
+                </button>
+              </div>
             </div>
 
             {loadingLogs ? (
@@ -925,13 +1073,28 @@ export default function SuperAdminPage() {
                   <tbody>
                     {auditLogs.map(log => (
                       <tr key={log.id}>
-                        <td className="text-xs text-slate-500">{new Date(log.created_at).toLocaleString()}</td>
-                        <td><span className="badge success text-2xs">{log.action}</span></td>
-                        <td>{log.branch_code ? `${log.branch_code}: ${log.branch_name}` : 'Central Platform'}</td>
-                        <td className="max-w-xs truncate text-xs">
-                          <code>{typeof log.details === 'object' ? JSON.stringify(log.details) : log.details}</code>
+                        <td className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleString('en-PK', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
                         </td>
-                        <td><strong>{log.performed_by || 'superadmin'}</strong></td>
+                        <td>{getAuditActionBadge(log.action)}</td>
+                        <td>
+                          <span className="text-xs font-semibold text-slate-700">
+                            {log.branch_code ? `${log.branch_code}: ${log.branch_name}` : 'Central Platform'}
+                          </span>
+                        </td>
+                        <td className="text-xs text-slate-600 max-w-md">
+                          {formatAuditDetails(log.details)}
+                        </td>
+                        <td>
+                          <span className="badge primary font-bold text-2xs">{log.performed_by || 'superadmin'}</span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1064,41 +1227,80 @@ export default function SuperAdminPage() {
             <div className="modal-head">
               <div className="flex items-center gap-2">
                 <Building2 size={16} className="text-blue-600" />
-                <h3 className="m-0 text-sm font-bold">Branch Profile: {viewDetailsBranch.branchName} ({viewDetailsBranch.branchCode})</h3>
+                <h3 className="m-0 text-sm font-bold">
+                  Branch Profile: {viewDetailsBranch.branch_name || viewDetailsBranch.branchName || 'N/A'} ({viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'N/A'})
+                </h3>
               </div>
-              <button type="button" className="modal-close" onClick={() => setViewDetailsBranch(null)}>×</button>
+              <button
+                type="button"
+                onClick={() => setViewDetailsBranch(null)}
+                className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200/80 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                title="Close"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
             </div>
+
             <div className="modal-body space-y-3">
               {/* Status Banner */}
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200/80">
                 <div>
                   <span className="text-xs text-slate-500 block">Operational Status</span>
                   <strong className={`text-xs ${viewDetailsBranch.status === 'Active' ? 'text-emerald-700' : 'text-red-600'}`}>
-                    {viewDetailsBranch.status}
+                    {viewDetailsBranch.status || 'Active'}
                   </strong>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-500 block">System State</span>
-                  <span className="badge success text-2xs">Synchronized & Active</span>
+                  <span className="text-xs text-slate-500 block">Branch Code</span>
+                  <span className="badge primary font-bold text-xs">
+                    {viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'N/A'}
+                  </span>
                 </div>
               </div>
 
-              {/* Business Profile Details */}
-              <div>
-                <strong className="text-xs text-slate-700 block mb-1.5">Branch Profile & Operational Details</strong>
-                <div className="grid grid-cols-2 gap-2.5 text-xs bg-white border border-slate-200/80 rounded-xl p-3.5">
-                  <div><span>Branch Code:</span> <strong className="block font-bold text-blue-700">{viewDetailsBranch.branchCode}</strong></div>
-                  <div><span>Branch Name:</span> <strong className="block font-semibold">{viewDetailsBranch.branchName}</strong></div>
-                  <div><span>Branch Manager:</span> <strong className="block">{viewDetailsBranch.adminName || '—'}</strong></div>
-                  <div><span>Admin Username:</span> <strong className="block"><code>{viewDetailsBranch.adminUsername || '—'}</code></strong></div>
-                  <div><span>City:</span> <strong className="block">{viewDetailsBranch.city || '—'}</strong></div>
-                  <div><span>Phone:</span> <strong className="block">{viewDetailsBranch.phone || '—'}</strong></div>
-                  <div><span>Email:</span> <strong className="block">{viewDetailsBranch.email || '—'}</strong></div>
-                  <div><span>Registration Date:</span> <strong className="block">{fmtDate(viewDetailsBranch.createdAt)}</strong></div>
-                  <div className="col-span-2"><span>Physical Address:</span> <strong className="block">{viewDetailsBranch.address || '—'}</strong></div>
+              {/* Error Callout if fetch failed */}
+              {branchDetailsError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex justify-between items-center">
+                  <span>{branchDetailsError}</span>
+                  <button
+                    type="button"
+                    className="font-bold underline cursor-pointer"
+                    onClick={() => handleOpenViewDetails(viewDetailsBranch)}
+                  >
+                    Retry
+                  </button>
                 </div>
-              </div>
+              )}
+
+              {/* Loading indicator or clean profile details */}
+              {loadingBranchDetails ? (
+                <div className="p-8 text-center space-y-2">
+                  <div className="loader mx-auto"></div>
+                  <p className="text-xs text-slate-500">Loading branch details...</p>
+                </div>
+              ) : (
+                /* Business Profile Details */
+                <div>
+                  <strong className="text-xs text-slate-700 block mb-1.5">Branch Profile & Operational Details</strong>
+                  <div className="grid grid-cols-2 gap-2.5 text-xs bg-white border border-slate-200/80 rounded-xl p-3.5">
+                    <div><span>Branch Code:</span> <strong className="block font-bold text-blue-700">{viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'N/A'}</strong></div>
+                    <div><span>Branch Name:</span> <strong className="block font-semibold">{viewDetailsBranch.branch_name || viewDetailsBranch.branchName || 'N/A'}</strong></div>
+                    <div><span>Branch Manager:</span> <strong className="block">{viewDetailsBranch.admin_name || viewDetailsBranch.adminName || 'N/A'}</strong></div>
+                    <div><span>Admin Username:</span> <strong className="block"><code>{viewDetailsBranch.admin_username || viewDetailsBranch.adminUsername || 'N/A'}</code></strong></div>
+                    <div><span>City:</span> <strong className="block">{viewDetailsBranch.city || 'N/A'}</strong></div>
+                    <div><span>Phone:</span> <strong className="block">{viewDetailsBranch.phone || 'N/A'}</strong></div>
+                    <div><span>Email:</span> <strong className="block">{viewDetailsBranch.email || 'N/A'}</strong></div>
+                    <div><span>Tagline:</span> <strong className="block text-slate-600 truncate">{viewDetailsBranch.tagline || 'N/A'}</strong></div>
+                    {viewDetailsBranch.ntn && (
+                      <div><span>NTN / Tax ID:</span> <strong className="block font-mono">{viewDetailsBranch.ntn}</strong></div>
+                    )}
+                    <div><span>Registration Date:</span> <strong className="block">{fmtDate(viewDetailsBranch.created_at || viewDetailsBranch.createdAt)}</strong></div>
+                    <div className="col-span-2"><span>Physical Address:</span> <strong className="block">{viewDetailsBranch.address || 'N/A'}</strong></div>
+                  </div>
+                </div>
+              )}
             </div>
+
             <div className="modal-foot flex justify-between items-center flex-wrap gap-2">
               <div className="flex gap-1.5">
                 <button type="button" className="btn small" onClick={() => setViewDetailsBranch(null)}>Close</button>
@@ -1110,12 +1312,12 @@ export default function SuperAdminPage() {
                     setViewDetailsBranch(null);
                     setEditModalBranch(b);
                     setEditForm({
-                      branch_name: b.branchName || '',
+                      branch_name: b.branch_name || b.branchName || '',
                       phone: b.phone || '',
                       email: b.email || '',
                       city: b.city || '',
                       address: b.address || '',
-                      admin_name: b.adminName || ''
+                      admin_name: b.admin_name || b.adminName || ''
                     });
                   }}
                 >
@@ -1132,7 +1334,7 @@ export default function SuperAdminPage() {
                   handleLoginAsAdmin(b);
                 }}
               >
-                <LogIn size={13} /> Login as Admin in {viewDetailsBranch.branchCode} →
+                <LogIn size={13} /> Login as Admin in {viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'Branch'} →
               </button>
             </div>
           </div>
@@ -1145,7 +1347,14 @@ export default function SuperAdminPage() {
           <div className="modal" style={{ maxWidth: 460 }}>
             <div className="modal-head">
               <h3 className="m-0 text-sm font-bold">Edit Branch ({editModalBranch.branchCode})</h3>
-              <button type="button" className="modal-close" onClick={() => setEditModalBranch(null)}>×</button>
+              <button
+                type="button"
+                onClick={() => setEditModalBranch(null)}
+                className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200/80 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                title="Close"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
             </div>
             <form onSubmit={handleSaveEditBranch}>
               <div className="modal-body space-y-3">
@@ -1189,7 +1398,14 @@ export default function SuperAdminPage() {
           <div className="modal" style={{ maxWidth: 380 }}>
             <div className="modal-head">
               <h3 className="m-0 text-sm font-bold">Reset Admin Password</h3>
-              <button type="button" className="modal-close" onClick={() => setResetModalBranch(null)}>×</button>
+              <button
+                type="button"
+                onClick={() => setResetModalBranch(null)}
+                className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200/80 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                title="Close"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
             </div>
             <form onSubmit={handleResetPassword}>
               <div className="modal-body space-y-3">
@@ -1223,59 +1439,87 @@ export default function SuperAdminPage() {
       {/* ── MODAL 4: DELETE BRANCH MODAL ── */}
       {deleteModalBranch && (
         <div className="modal-backdrop open">
-          <div className="modal" style={{ maxWidth: 440 }}>
-            <div className="modal-head bg-red-50/80 border-b border-red-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-red-100 text-red-600 grid place-items-center">
-                  <AlertTriangle size={15} />
+          <div className="modal" style={{ maxWidth: 480 }}>
+            {/* Clean, Modern Red Header */}
+            <div className="modal-head bg-rose-50/70 border-b border-rose-100/80 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 border border-rose-200/80 grid place-items-center shrink-0 shadow-xs">
+                  <AlertTriangle size={20} strokeWidth={2.2} />
                 </div>
-                <h3 className="m-0 text-sm font-bold text-red-900">
-                  Delete {deleteModalBranch.branchName} ({deleteModalBranch.branchCode})
-                </h3>
+                <div>
+                  <h3 className="m-0 text-sm font-bold text-slate-900">
+                    Delete Branch Database & Scope
+                  </h3>
+                  <p className="text-2xs text-rose-700 m-0 mt-0.5 font-medium">
+                    Permanent Purge: <strong>{deleteModalBranch?.branchName || 'Branch'}</strong> ({deleteModalBranch?.branchCode || 'BR'})
+                  </p>
+                </div>
               </div>
-              <button type="button" className="modal-close" onClick={() => setDeleteModalBranch(null)}>×</button>
+              <button
+                type="button"
+                onClick={() => setDeleteModalBranch(null)}
+                className="w-8 h-8 rounded-lg bg-white/90 hover:bg-white text-rose-600 hover:text-rose-700 border border-rose-200 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                title="Close"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
             </div>
 
-            <div className="modal-body space-y-3">
-              <div className="bg-red-50/80 border border-red-200 rounded-xl p-3 text-xs text-red-800 leading-relaxed">
-                <strong>Warning:</strong> All records, database data, and staff access for <strong>{deleteModalBranch.branchCode}</strong> will be permanently deleted.
+            <div className="modal-body p-4 space-y-3.5">
+              {/* Modern Destructive Warning Card */}
+              <div className="rounded-2xl border border-rose-200/90 bg-rose-50/50 p-3.5 text-xs text-rose-900 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-rose-800">
+                  <Shield size={14} className="text-rose-600" />
+                  <span>High-Security Destructive Action</span>
+                </div>
+                <ul className="m-0 pl-4 space-y-1 text-2xs text-rose-800/90 list-disc">
+                  <li>This branch dedicated database, invoices, inventory, and repair history will be permanently erased.</li>
+                  <li>All employee logins linked to <strong>{deleteModalBranch?.branchCode}</strong> will be revoked immediately.</li>
+                  <li>This operation is <strong>irreversible</strong> and cannot be undone.</li>
+                </ul>
               </div>
 
+              {/* Safe Archive Alternative if Records Exist */}
               {deleteSafetyData?.hasFinancialRecords && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex justify-between items-center gap-2">
-                  <span className="text-2xs text-amber-900 font-semibold">Or deactivate to keep records:</span>
+                <div className="rounded-xl border border-amber-200/90 bg-amber-50/70 p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 text-2xs text-amber-900">
+                    <strong className="block font-semibold">Preserve Financial & Tax Records?</strong>
+                    <span className="text-amber-800/90">Deactivating the branch preserves historical invoices for audits.</span>
+                  </div>
                   <button
                     type="button"
-                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-800 bg-white hover:bg-amber-100 border border-amber-200 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-2xs font-bold text-amber-900 bg-white hover:bg-amber-100 border border-amber-300 shadow-2xs cursor-pointer transition-all shrink-0"
                     onClick={() => handleExecuteDeleteBranch('archive')}
                     disabled={deletingBranch}
                   >
-                    Archive Instead
+                    Deactivate Instead
                   </button>
                 </div>
               )}
 
-              <div className="space-y-2.5 pt-1 border-t border-slate-100">
+              {/* 2-Step Confirmation Verification */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    1. Type <code>{deleteModalBranch.branchCode}</code> to confirm:
+                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between mb-1.5">
+                    <span>1. Type <code>{deleteModalBranch?.branchCode}</code> to confirm:</span>
+                    <span className="text-3xs text-slate-400 font-normal">Case-insensitive</span>
                   </label>
                   <input
-                    className="input font-bold tracking-wider"
-                    placeholder={deleteModalBranch.branchCode}
+                    className="input font-bold tracking-wider uppercase text-center"
+                    placeholder={`TYPE "${deleteModalBranch?.branchCode || ''}"`}
                     value={typedBranchCode}
                     onChange={e => setTypedBranchCode(e.target.value.toUpperCase())}
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    2. Super Admin Password:
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    2. Super Admin Master Password:
                   </label>
                   <input
                     type="password"
                     className="input"
-                    placeholder="Enter master password"
+                    placeholder="Enter platform master password"
                     value={superAdminPass}
                     onChange={e => setSuperAdminPass(e.target.value)}
                   />
@@ -1283,7 +1527,7 @@ export default function SuperAdminPage() {
               </div>
             </div>
 
-            <div className="modal-foot flex justify-between items-center">
+            <div className="modal-foot flex justify-between items-center p-3.5 bg-slate-50 border-t border-slate-100">
               <button
                 type="button"
                 className="btn small"
@@ -1295,15 +1539,12 @@ export default function SuperAdminPage() {
 
               <button
                 type="button"
-                className="btn small danger inline-flex items-center gap-1.5"
+                className="btn small danger inline-flex items-center gap-1.5 cursor-pointer"
                 onClick={() => handleExecuteDeleteBranch('purge')}
-                disabled={
-                  deletingBranch ||
-                  typedBranchCode.trim().toUpperCase() !== deleteModalBranch.branchCode.trim().toUpperCase() ||
-                  !superAdminPass
-                }
+                disabled={deletingBranch}
               >
-                {deletingBranch ? 'Deleting...' : 'Permanently Delete'}
+                <Trash2 size={13} />
+                <span>{deletingBranch ? 'Purging Database...' : 'Permanently Delete Branch'}</span>
               </button>
             </div>
           </div>

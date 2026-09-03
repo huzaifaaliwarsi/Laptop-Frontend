@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
         { noCache: true }
       );
       if (res.success && res.data) {
-        setCompanyBranding(res.data);
+        setCompanyBranding({ ...res.data, branchId: String(targetBranchId) });
       }
     } catch (err) {
       console.error('[Company Branding Load Error]:', err);
@@ -129,7 +129,6 @@ export function AuthProvider({ children }) {
       const activeBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
       if (!data.branchId || String(data.branchId) === String(activeBId)) {
         setCompanyBranding(data);
-        toast('Company branding updated');
       }
     };
 
@@ -174,31 +173,37 @@ export function AuthProvider({ children }) {
         localStorage.setItem('activeBranchId', String(numericId));
         localStorage.setItem('portalView', 'admin');
 
-        // 2. Nuke all client-side API cache to prevent cross-branch data bleed
+        // 2. Clear old companyBranding immediately so it never bleeds into new branch
+        setCompanyBranding(null);
+
+        // 3. Nuke all client-side API cache to prevent cross-branch data bleed
         try {
           const mod = await import('../services/api');
           if (mod.clearClientCache) mod.clearClientCache();
         } catch (_) { /* ignore */ }
 
-        // 3. Update React state
+        // 4. Update React state immediately with known target branch
         const knownBranches = branchesRef.current;
         const b = knownBranches.find(item => item.id === numericId);
         if (b) {
           setActiveBranch(b);
         }
 
+        // 5. Trigger fresh branding load for new branch
+        loadCompanyBranding(numericId);
+
         toast(`Switching to ${b?.branch_name || 'Branch ' + numericId}...`);
 
-        // 4. Hard navigate to /dashboard — fully remounts everything with new branch context
+        // 6. Hard navigate to /dashboard — fully remounts everything with new branch context
         setTimeout(() => {
           window.location.href = '/dashboard';
-        }, 500);
+        }, 250);
       }
     } catch (err) {
       console.error('Error switching branch:', err);
       toast('Failed to switch branch. Please try again.', 'error');
     }
-  }, [toast]);
+  }, [loadCompanyBranding, toast]);
 
   const login = async (username, password, portal) => {
     try {
