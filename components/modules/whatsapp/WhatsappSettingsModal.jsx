@@ -5,6 +5,7 @@ import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, LogOut, Smartphone,
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
+import { getSocket } from '../../../services/socket';
 
 export default function WhatsappSettingsModal({
   isOpen,
@@ -46,11 +47,16 @@ export default function WhatsappSettingsModal({
 
   const handleConnectQR = async () => {
     setLoadingStatus(true);
+    setWaStatus(prev => ({ ...prev, connecting: true }));
     try {
       const res = await api.post('/whatsapp/connect');
       if (res.success && res.data) {
         setWaStatus(res.data);
-        toast('QR Code generated! Scan it with WhatsApp on your phone.');
+        if (res.data.qr) {
+          toast('QR Code generated! Scan it with WhatsApp on your phone.');
+        } else {
+          toast('Connecting to WhatsApp multi-device server, awaiting QR...');
+        }
       }
     } catch (err) {
       toast(err.message || 'Error generating QR code', 'error');
@@ -101,14 +107,35 @@ export default function WhatsappSettingsModal({
   useEffect(() => {
     if (isOpen) {
       fetchStatus();
-      // Poll status every 4 seconds while modal is open and not connected to auto-detect scan
+
+      // Real-time socket updates for QR code & device link events
+      const socket = getSocket();
+      let handleStatus = null;
+      let handleQr = null;
+
+      if (socket) {
+        handleStatus = (status) => {
+          if (status) {
+            setWaStatus(prev => ({ ...prev, ...status }));
+          }
+        };
+        handleQr = (data) => {
+          if (data?.qr) {
+            setWaStatus(prev => ({ ...prev, qr: data.qr, connecting: false }));
+          }
+        };
+        socket.on('whatsapp:status', handleStatus);
+        socket.on('whatsapp:qr', handleQr);
+      }
+
+      // Safety polling interval
       const interval = setInterval(() => {
         api.get('/whatsapp/status').then(res => {
           if (res.success && res.data) {
-            setWaStatus(res.data);
+            setWaStatus(prev => ({ ...prev, ...res.data }));
           }
         }).catch(() => {});
-      }, 4000);
+      }, 2500);
 
       api.get('/whatsapp/settings')
         .then(res => {
@@ -123,7 +150,11 @@ export default function WhatsappSettingsModal({
         })
         .catch(console.error);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        if (socket && handleStatus) socket.off('whatsapp:status', handleStatus);
+        if (socket && handleQr) socket.off('whatsapp:qr', handleQr);
+      };
     }
   }, [isOpen]);
 
@@ -266,7 +297,7 @@ export default function WhatsappSettingsModal({
           {!waStatus.connected && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(240px, 300px) 1fr',
+              gridTemplateColumns: 'minmax(260px, 320px) 1fr',
               gap: 20,
               background: 'var(--bg)',
               border: '1px solid var(--border)',
@@ -278,21 +309,49 @@ export default function WhatsappSettingsModal({
                 textAlign: 'center',
                 background: '#fff',
                 padding: 16,
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+                borderRadius: 12,
+                border: '1px solid #cbd5e1',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.06)'
               }}>
                 {waStatus.qr ? (
                   <>
-                    <img
-                      src={waStatus.qr}
-                      alt="Scan WhatsApp QR Code"
-                      style={{ width: '100%', maxWidth: 220, height: 'auto', display: 'block', margin: '0 auto' }}
-                    />
-                    <div style={{ fontSize: 11, color: '#059669', fontWeight: 700, marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                      <span className="spin" style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'inline-block' }} /> Live QR Ready
+                    <div style={{ background: '#fff', padding: 8, borderRadius: 8, display: 'inline-block' }}>
+                      <img
+                        src={waStatus.qr}
+                        alt="Scan WhatsApp QR Code"
+                        style={{
+                          width: '100%',
+                          maxWidth: 240,
+                          height: 'auto',
+                          display: 'block',
+                          margin: '0 auto',
+                          imageRendering: 'pixelated'
+                        }}
+                      />
                     </div>
+                    <div style={{ fontSize: 11, color: '#059669', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <span className="spin" style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', display: 'inline-block' }} /> Live QR Ready • Scan Now
+                    </div>
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      onClick={handleConnectQR}
+                      disabled={loadingStatus}
+                      style={{ marginTop: 10, fontSize: 11, width: '100%' }}
+                    >
+                      <RefreshCw size={12} className={loadingStatus ? 'spin' : ''} /> Refresh New QR
+                    </button>
                   </>
+                ) : loadingStatus || waStatus.connecting ? (
+                  <div style={{ padding: '44px 12px', color: 'var(--text)' }}>
+                    <div className="loader loader-md mx-auto mb-3"></div>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#2563eb' }}>
+                      Generating live WhatsApp QR Code...
+                    </p>
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                      Connecting to WhatsApp multi-device server
+                    </p>
+                  </div>
                 ) : (
                   <div style={{ padding: '40px 10px', color: 'var(--muted)' }}>
                     <QrCode size={48} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
@@ -304,7 +363,7 @@ export default function WhatsappSettingsModal({
                       disabled={loadingStatus}
                       style={{ marginTop: 12 }}
                     >
-                      Generate QR
+                      Generate QR Code
                     </button>
                   </div>
                 )}
@@ -313,19 +372,20 @@ export default function WhatsappSettingsModal({
               <div>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Smartphone size={16} className="text-blue-600" />
-                  <span>How to Connect Mobile WhatsApp:</span>
+                  <span>How to Link WhatsApp on Mobile Phone:</span>
                 </h4>
                 <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--text)', lineHeight: 1.8 }}>
-                  <li>Open <strong>WhatsApp</strong> on your phone.</li>
-                  <li>Tap <strong>Menu (⋮)</strong> on Android or <strong>Settings</strong> on iPhone.</li>
-                  <li>Select <strong>Linked Devices</strong>.</li>
-                  <li>Tap <strong>Link a Device</strong> and point your camera at the QR code on this screen.</li>
-                  <li>Once connected, the screen will automatically update to <strong>Connected</strong>!</li>
+                  <li>Open <strong>WhatsApp</strong> on your mobile phone.</li>
+                  <li>Tap <strong>Menu (⋮)</strong> on Android or <strong>Settings (gear)</strong> on iPhone.</li>
+                  <li>Select <strong>Linked Devices</strong> (منسلک آلات).</li>
+                  <li>Tap <strong>Link a Device</strong> (ایک آلہ منسلک کریں).</li>
+                  <li>Point your phone's camera at the QR code on this screen.</li>
+                  <li>Device will connect instantly and this screen will change to <strong>Connected</strong>!</li>
                 </ol>
 
-                <div style={{ marginTop: 14, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 11.5, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Info size={14} className="text-blue-600 flex-shrink-0" />
-                  <span><strong>Multi-Device:</strong> Your phone does not need to stay online 24/7 once linked. Messages are automatically sent directly from your server!</span>
+                <div style={{ marginTop: 14, padding: '10px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 11.5, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Info size={16} className="text-blue-600 flex-shrink-0" />
+                  <span><strong>Multi-Device:</strong> Once linked, automated repair alerts & bot replies will be sent directly through this system even if your phone goes offline.</span>
                 </div>
               </div>
             </div>

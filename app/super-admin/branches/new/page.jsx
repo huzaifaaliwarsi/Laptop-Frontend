@@ -127,7 +127,7 @@ export default function NewBranchPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      
+
       {/* Top Header */}
       <div className="flex justify-between items-center">
         <Link
@@ -168,7 +168,7 @@ export default function NewBranchPage() {
       ) : (
         /* SIMPLE, CLEAN & BEAUTIFUL SINGLE FORM */
         <form onSubmit={handleSubmit} className="panel p-6 space-y-5">
-          
+
           <div>
             <h2 className="text-lg font-bold text-slate-900 m-0">Open New Branch</h2>
             <p className="text-xs text-slate-500 mt-1">

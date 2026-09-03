@@ -49,7 +49,7 @@ export default function LoginScreen() {
       const cleanUser = username.trim().toLowerCase();
       const portal = cleanUser === 'superadmin' ? 'super_admin' : undefined;
       const res = await login(cleanUser, password, portal);
-      
+
       if (!res.success) {
         toast(res.message || 'Invalid username or password', 'error');
       } else if (res.user?.role === 'super_admin' || cleanUser === 'superadmin') {
