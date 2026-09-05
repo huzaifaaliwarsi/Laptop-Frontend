@@ -3595,8 +3595,8 @@ table td {
    Smooth Blue Conic Spinner Loader
    ========================================================================== */
 .loader {
-  width: 48px;
-  padding: 7px;
+  width: 44px;
+  padding: 5px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: #2563eb;
@@ -3647,4 +3647,4 @@ table td {
   to {
     transform: rotate(1turn);
   }
-}
+}

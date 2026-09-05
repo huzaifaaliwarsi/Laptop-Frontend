@@ -30,18 +30,25 @@ export default function StaffPage() {
     loadStaff();
   }, []);
 
-  const handleToggleStatus = async (staff) => {
-    try {
-      const res = await api.patch(`/staff/${staff.id}/status`);
-      if (res.success) {
-        toast(res.message);
-        loadStaff();
-      }
-    } catch (err) {
-      toast(err.message || 'Error updating status', 'error');
-    }
-  };
+ const handleToggleStatus = async (staff) => {
+  try {
+    const currentStatus = String(staff.status).toLowerCase();
+    const nextStatus = currentStatus === 'active' ? 'Inactive' : 'Active';
 
+    const res = await api.patch(`/staff/${staff.id}/status`, {
+      status: nextStatus
+    });
+
+    if (res.success) {
+      toast(res.message || `Staff status changed to ${nextStatus}`);
+      loadStaff();
+    } else {
+      toast(res.message || 'Status update failed', 'error');
+    }
+  } catch (err) {
+    toast(err.message || 'Error updating status', 'error');
+  }
+};
   const handleDelete = async (staff) => {
     if (!confirm(`Delete staff account for ${staff.name} (${staff.username})?`)) return;
     try {

@@ -85,7 +85,9 @@ export default function DashboardPage() {
             Welcome back, <strong>{user?.name || 'Administrator'}</strong>. Real-time operations & live metrics from all business sections.
           </p>
         </div>
-        <div className="hero-actions flex gap-2 flex-wrap items-center">
+
+        {/* Delete Shortcuts*/}
+        {/* <div className="hero-actions flex gap-2 flex-wrap items-center">
           <button
             type="button"
             className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
@@ -123,7 +125,7 @@ export default function DashboardPage() {
           >
             <Wallet size={13} /> + Cash Drawer
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* KPI Cards */}

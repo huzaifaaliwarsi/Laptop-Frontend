@@ -17,7 +17,7 @@ export default function DashboardSkeleton({ role = 'admin' }) {
     >
       <div className="loader"></div>
       <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#64748b' }}>
-        Loading dashboard metrics...
+        Loading..
       </p>
     </div>
   );

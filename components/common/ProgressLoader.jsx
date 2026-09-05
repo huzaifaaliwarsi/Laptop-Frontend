@@ -7,7 +7,6 @@ import React from 'react';
  * Supports fullScreen, tableRow, compact, and embedded container views.
  */
 export default function ProgressLoader({
-  message = 'Loading...',
   fullScreen = false,
   tableRow = false,
   colSpan = 10,
@@ -33,27 +32,32 @@ export default function ProgressLoader({
         gap: compact ? 10 : 14
       }}
     >
-      <div className={`loader ${compact ? 'loader-sm' : ''}`}></div>
-      {message && (
-        <p
-          className="loader-text"
-          style={{
-            margin: 0,
-            fontSize: compact ? 12 : 13,
-            fontWeight: 600,
-            color: '#64748b'
-          }}
-        >
-          {message}
-        </p>
-      )}
+      <div className={`loader ${compact ? 'loader-sm' : ''}`} />
+
+      <p
+        className="loader-text"
+        style={{
+          margin: 0,
+          fontSize: compact ? 12 : 13,
+          fontWeight: 600,
+          color: '#64748b'
+        }}
+      >
+        Loading...
+      </p>
     </div>
   );
 
   if (tableRow) {
     return (
       <tr>
-        <td colSpan={colSpan} style={{ padding: 0, border: 'none' }}>
+        <td
+          colSpan={colSpan}
+          style={{
+            padding: 0,
+            border: 'none'
+          }}
+        >
           {content}
         </td>
       </tr>

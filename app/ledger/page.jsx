@@ -6,6 +6,7 @@ import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
 import { Skeleton, TableRowSkeleton } from '../../components/common/Skeleton';
+import ProgressLoader from '../../components/common/ProgressLoader';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -15,6 +16,7 @@ function money(v) {
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
 }
+
 
 export default function LedgerPage() {
   const searchParams = useSearchParams();
@@ -125,27 +127,15 @@ export default function LedgerPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="card" style={{ padding: '24px 30px', marginTop: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Skeleton width="40%" height="24px" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, margin: '10px 0' }}>
-              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
-              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
-              <Skeleton width="100%" height="80px" style={{ borderRadius: '10px' }} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} width="100%" height="36px" style={{ borderRadius: '6px' }} />
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : ledgerData ? (
-        <>
+     {loading ? (
+  <div className="card" style={{ marginTop: 14 }}>
+    <ProgressLoader />
+  </div>
+) : ledgerData ? (
+  <>
           {/* 1. Top Dark Summary Header Band */}
           <div style={{
-            backgroundColor: '#2d3748',
+            backgroundColor: '#0648d6',
             borderRadius: 14,
             padding: '24px 36px',
             marginTop: 14,
@@ -157,7 +147,7 @@ export default function LedgerPage() {
           }}>
             {/* Left */}
             <div>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#f8f8f8', textTransform: 'uppercase', display: 'block' }}>
                 {isVendor ? 'TOTAL PURCHASES' : 'TOTAL SALES'}
               </span>
               <strong style={{ fontSize: 24, fontWeight: 800, color: '#ffffff', display: 'block', marginTop: 4 }}>
@@ -167,7 +157,7 @@ export default function LedgerPage() {
 
             {/* Center */}
             <div style={{ textAlign: 'center', minWidth: 240 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#f8f8f8', display: 'block' }}>
                 Current Balance
               </span>
               <strong style={{ fontSize: 32, fontWeight: 800, color: '#ffffff', display: 'block', marginTop: 2 }}>
@@ -191,7 +181,7 @@ export default function LedgerPage() {
 
             {/* Right */}
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#f8f8f8', textTransform: 'uppercase', display: 'block' }}>
                 {isVendor ? 'PAYMENTS MADE TO VENDOR' : 'PAYMENTS RECEIVED'}
               </span>
               <strong style={{ fontSize: 24, fontWeight: 800, color: '#ffffff', display: 'block', marginTop: 4 }}>

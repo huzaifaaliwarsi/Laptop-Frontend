@@ -40,7 +40,7 @@ export function TableRowSkeleton({
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <div className="loader loader-sm"></div>
           <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-            Loading records...
+            Loading...
           </span>
         </div>
       </td>
@@ -67,7 +67,7 @@ export function POSProductGridSkeleton({ count = 8 }) {
     <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12, width: '100%' }}>
       <div className="loader"></div>
       <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-        Loading catalog items...
+        Loading...
       </span>
     </div>
   );
