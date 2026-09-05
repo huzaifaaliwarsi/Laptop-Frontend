@@ -181,7 +181,7 @@ export default function LedgerPage() {
 
             {/* Right */}
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#f8f8f8', textTransform: 'uppercase', display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: '#f7fbff', textTransform: 'uppercase', display: 'block' }}>
                 {isVendor ? 'PAYMENTS MADE TO VENDOR' : 'PAYMENTS RECEIVED'}
               </span>
               <strong style={{ fontSize: 24, fontWeight: 800, color: '#ffffff', display: 'block', marginTop: 4 }}>
