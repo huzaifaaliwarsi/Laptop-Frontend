@@ -3612,17 +3612,17 @@ table td {
 
 .loader-sm {
   width: 28px;
-  padding: 4px;
+  padding: 3.8px;
 }
 
 .loader-xs {
-  width: 20px;
-  padding: 3px;
+  width: 19px;
+  padding: 2.7px;
 }
 
 .loader-lg {
   width: 56px;
-  padding: 8px;
+  padding: 6.8px;
 }
 
 .loader-container {

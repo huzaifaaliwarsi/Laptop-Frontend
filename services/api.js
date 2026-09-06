@@ -62,8 +62,9 @@ async function apiRequest(endpoint, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   const isGet = method === 'GET';
 
-  // Cache key (always scoped by active branch context to prevent cross-branch bleeding)
-  const activeBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+  // Cache key (always scoped by active or explicit branch context to prevent cross-branch bleeding)
+  const explicitBId = options.headers?.['X-Branch-Id'] || options.headers?.['x-branch-id'];
+  const activeBId = explicitBId || (typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1');
   const cacheKey = `b_${activeBId}:${cleanEndpoint}`;
 
   // If mutation, invalidate related cache keys
@@ -176,11 +177,21 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 export const api = {
-  get: (endpoint, headers, options = {}) => apiRequest(endpoint, { method: 'GET', headers, ...options }),
+  get: (endpoint, headersOrOptions, maybeOptions = {}) => {
+    const isOptions = headersOrOptions && (headersOrOptions.noCache !== undefined || headersOrOptions.cacheTtl !== undefined);
+    const headers = isOptions ? null : headersOrOptions;
+    const options = isOptions ? headersOrOptions : maybeOptions;
+    return apiRequest(endpoint, { method: 'GET', headers, ...options });
+  },
   post: (endpoint, body, headers, options = {}) => apiRequest(endpoint, { method: 'POST', body, headers, ...options }),
   put: (endpoint, body, headers, options = {}) => apiRequest(endpoint, { method: 'PUT', body, headers, ...options }),
   patch: (endpoint, body, headers, options = {}) => apiRequest(endpoint, { method: 'PATCH', body, headers, ...options }),
-  delete: (endpoint, headers, options = {}) => apiRequest(endpoint, { method: 'DELETE', headers, ...options }),
+  delete: (endpoint, headersOrOptions, maybeOptions = {}) => {
+    const isOptions = headersOrOptions && headersOrOptions.noCache !== undefined;
+    const headers = isOptions ? null : headersOrOptions;
+    const options = isOptions ? headersOrOptions : maybeOptions;
+    return apiRequest(endpoint, { method: 'DELETE', headers, ...options });
+  },
   clearCache: clearClientCache
 };
 

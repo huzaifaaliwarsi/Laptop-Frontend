@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -26,6 +27,7 @@ function fmtDate(v) {
 
 export default function DashboardPage() {
   const { user, role, effectiveRole } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,8 +51,16 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (role === 'technician') {
+      router.replace('/technician');
+      return;
+    }
     loadDashboard();
-  }, []);
+  }, [role, router]);
+
+  if (role === 'technician') {
+    return <DashboardSkeleton role="technician" />;
+  }
 
   const handleOpenInvoice = async (inv) => {
     try {

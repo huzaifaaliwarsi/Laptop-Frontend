@@ -116,11 +116,19 @@ export default function WhatsappSettingsModal({
       if (socket) {
         handleStatus = (status) => {
           if (status) {
+            const currentBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+            if (status.branchId && String(status.branchId) !== String(currentBId)) {
+              return;
+            }
             setWaStatus(prev => ({ ...prev, ...status }));
           }
         };
         handleQr = (data) => {
           if (data?.qr) {
+            const currentBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+            if (data.branchId && String(data.branchId) !== String(currentBId)) {
+              return;
+            }
             setWaStatus(prev => ({ ...prev, qr: data.qr, connecting: false }));
           }
         };

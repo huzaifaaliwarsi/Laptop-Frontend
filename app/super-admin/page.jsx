@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
+import DashboardSkeleton from '../../components/common/DashboardSkeleton';
 import {
   Building2,
   RefreshCw,
@@ -57,6 +58,20 @@ function getAuditActionBadge(action) {
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
           <Key size={12} className="text-blue-600" />
           <span>Master Password Changed</span>
+        </span>
+      );
+    case 'BRANCH_ADMIN_STATUS_CHANGED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+          <Power size={12} className="text-amber-600" />
+          <span>Admin Status Changed</span>
+        </span>
+      );
+    case 'BRANCH_ADMIN_DELETED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+          <Trash2 size={12} className="text-rose-600" />
+          <span>Admin Account Purged</span>
         </span>
       );
     case 'BRANCH_ADMIN_PASSWORD_RESET':
@@ -211,6 +226,10 @@ export default function SuperAdminPage() {
   const [clearingLogs, setClearingLogs] = useState(false);
   const [branchAdminsList, setBranchAdminsList] = useState([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [deleteAdminModal, setDeleteAdminModal] = useState(null);
+  const [deleteAdminPass, setDeleteAdminPass] = useState('');
+  const [deletingAdmin, setDeletingAdmin] = useState(false);
+  const [togglingAdminId, setTogglingAdminId] = useState(null);
 
   // Security
   const [currentMasterPass, setCurrentMasterPass] = useState('');
@@ -322,7 +341,7 @@ export default function SuperAdminPage() {
   const loadBranchAdmins = async () => {
     setLoadingAdmins(true);
     try {
-      const res = await api.get('/super-admin/branch-admins');
+      const res = await api.get('/super-admin/branch-admins', { noCache: true });
       if (res.success) setBranchAdminsList(res.data || []);
     } catch (err) {
       toast(err.message || 'Error loading branch admins', 'error');
@@ -522,6 +541,74 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handleDeleteAdmin = async (e) => {
+    e.preventDefault();
+    if (!deleteAdminModal) return;
+    if (!deleteAdminPass) {
+      toast('Please enter your Super Admin password to authorize deletion.', 'error');
+      return;
+    }
+
+    setDeletingAdmin(true);
+    try {
+      const res = await api.post(`/super-admin/branches/${deleteAdminModal.branchId}/admins/${deleteAdminModal.adminId}/delete`, {
+        superAdminPassword: deleteAdminPass
+      });
+
+      if (res && res.success) {
+        toast(res.message || 'Branch administrator deleted successfully.', 'success');
+        setDeleteAdminModal(null);
+        setDeleteAdminPass('');
+        await loadBranchAdmins();
+        await loadAuditLogs();
+      } else {
+        toast(res?.message || 'Failed to delete administrator.', 'error');
+      }
+    } catch (err) {
+      toast(err.message || 'Error deleting administrator.', 'error');
+    } finally {
+      setDeletingAdmin(false);
+    }
+  };
+
+  const handleToggleAdminStatus = async (branchId, admin) => {
+    const nextStatus = admin.status === 'Active' ? 'Inactive' : 'Active';
+    const actionText = nextStatus === 'Active' ? 'activate' : 'deactivate';
+    if (!confirm(`Are you sure you want to ${actionText} administrator "${admin.name}" (${admin.username})?`)) {
+      return;
+    }
+
+    setTogglingAdminId(admin.id);
+
+    // Optimistically update local state immediately so user sees instant button/badge change
+    setBranchAdminsList(prev => prev.map(ba => {
+      if (String(ba.branchId) !== String(branchId)) return ba;
+      return {
+        ...ba,
+        admins: (ba.admins || []).map(a => (String(a.id) === String(admin.id) ? { ...a, status: nextStatus } : a))
+      };
+    }));
+
+    try {
+      const res = await api.patch(`/super-admin/branches/${branchId}/admins/${admin.id}/status`, {
+        status: nextStatus
+      });
+      if (res && res.success) {
+        toast(res.message || `Administrator is now ${nextStatus}`, 'success');
+        await loadBranchAdmins();
+        await loadAuditLogs();
+      } else {
+        toast(res?.message || 'Failed to update administrator status', 'error');
+        await loadBranchAdmins();
+      }
+    } catch (err) {
+      toast(err.message || 'Error updating administrator status', 'error');
+      await loadBranchAdmins();
+    } finally {
+      setTogglingAdminId(null);
+    }
+  };
+
   const handleUpdateMasterPassword = async (e) => {
     e.preventDefault();
     if (!currentMasterPass || !newMasterPass) {
@@ -561,6 +648,10 @@ export default function SuperAdminPage() {
   const isMaxReached = (platformBranches.length >= 2);
   const summaryCombined = summaryData?.combined || platformData?.combined || {};
   const masterCombined = platformData?.combined || {};
+
+  if (loading && !platformData) {
+    return <DashboardSkeleton role="superadmin" />;
+  }
 
   return (
     <div className="space-y-4">
@@ -1055,7 +1146,10 @@ export default function SuperAdminPage() {
             </div>
 
             {loadingLogs ? (
-              <div className="p-6 text-center text-xs text-slate-400">Loading audit trail...</div>
+              <div className="p-10 flex flex-col items-center justify-center gap-2.5">
+                <div className="loader loader-sm"></div>
+                <span className="text-xs font-semibold text-slate-500">Loading...</span>
+              </div>
             ) : auditLogs.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">No audit events recorded yet.</div>
             ) : (
@@ -1121,7 +1215,10 @@ export default function SuperAdminPage() {
             </div>
 
             {loadingAdmins ? (
-              <div className="p-6 text-center text-xs text-slate-400">Loading administrators...</div>
+              <div className="p-10 flex flex-col items-center justify-center gap-2.5">
+                <div className="loader loader-sm"></div>
+                <span className="text-xs font-semibold text-slate-500">Loading...</span>
+              </div>
             ) : (
               <div className="table-wrap">
                 <table>
@@ -1149,13 +1246,46 @@ export default function SuperAdminPage() {
                             </span>
                           </td>
                           <td className="text-right">
-                            <button
-                              type="button"
-                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1 cursor-pointer"
-                              onClick={() => setResetModalBranch({ branchId: ba.branchId, branchCode: ba.branchCode, branchName: ba.branchName })}
-                            >
-                              <Key size={12} /> Reset Password
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-all shadow-xs active:scale-95 ${
+                                  adm.status === 'Active'
+                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                                    : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                                }`}
+                                onClick={() => handleToggleAdminStatus(ba.branchId, adm)}
+                                disabled={togglingAdminId === adm.id}
+                                title={adm.status === 'Active' ? 'Deactivate this administrator' : 'Activate this administrator'}
+                              >
+                                <Power size={12} className={togglingAdminId === adm.id ? 'animate-spin' : ''} />
+                                {adm.status === 'Active' ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+                                onClick={() => setResetModalBranch({ branchId: ba.branchId, branchCode: ba.branchCode, branchName: ba.branchName, adminUsername: adm.username, adminName: adm.name })}
+                              >
+                                <Key size={12} /> Reset Password
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs active:scale-95"
+                                onClick={() => {
+                                  setDeleteAdminModal({
+                                    branchId: ba.branchId,
+                                    branchCode: ba.branchCode,
+                                    branchName: ba.branchName,
+                                    adminId: adm.id,
+                                    adminName: adm.name,
+                                    adminUsername: adm.username
+                                  });
+                                  setDeleteAdminPass('');
+                                }}
+                              >
+                                <Trash2 size={12} /> Delete Admin
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1274,9 +1404,9 @@ export default function SuperAdminPage() {
 
               {/* Loading indicator or clean profile details */}
               {loadingBranchDetails ? (
-                <div className="p-8 text-center space-y-2">
-                  <div className="loader mx-auto"></div>
-                  <p className="text-xs text-slate-500">Loading branch details...</p>
+                <div className="p-10 flex flex-col items-center justify-center gap-2.5 text-center">
+                  <div className="loader loader-sm"></div>
+                  <span className="text-xs font-semibold text-slate-500">Loading...</span>
                 </div>
               ) : (
                 /* Business Profile Details */
@@ -1547,6 +1677,94 @@ export default function SuperAdminPage() {
                 <span>{deletingBranch ? 'Purging Database...' : 'Permanently Delete Branch'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 5: DELETE BRANCH ADMIN MODAL ── */}
+      {deleteAdminModal && (
+        <div className="modal-backdrop open">
+          <div className="modal" style={{ maxWidth: 460 }}>
+            <div className="modal-head bg-rose-50/70 border-b border-rose-100/80 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 border border-rose-200/80 grid place-items-center shrink-0 shadow-xs">
+                  <AlertTriangle size={20} strokeWidth={2.2} />
+                </div>
+                <div>
+                  <h3 className="m-0 text-sm font-bold text-slate-900">Delete Branch Administrator</h3>
+                  <p className="m-0 text-xs text-slate-500">Security Authorization Required</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteAdminModal(null)}
+                className="w-8 h-8 rounded-lg bg-white hover:bg-rose-100 text-slate-400 hover:text-rose-600 border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeleteAdmin}>
+              <div className="modal-body p-4 space-y-3">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Administrator:</span>
+                    <strong className="text-slate-900 font-bold">{deleteAdminModal.adminName}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Username:</span>
+                    <code className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold">{deleteAdminModal.adminUsername}</code>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Branch:</span>
+                    <strong className="text-slate-700">{deleteAdminModal.branchCode} — {deleteAdminModal.branchName}</strong>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-amber-200/90 bg-amber-50/70 p-3 text-2xs text-amber-900 space-y-1">
+                  <strong className="block font-semibold text-amber-800">Operational Notice:</strong>
+                  <p className="m-0 text-amber-800/90">
+                    Deleting this administrator will revoke their login immediately and release their username. Historical invoices and repair records will remain preserved under their recorded name.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Enter Super Admin Password to Authorize *
+                  </label>
+                  <input
+                    type="password"
+                    className="input"
+                    placeholder="Enter Super Admin password"
+                    value={deleteAdminPass}
+                    onChange={e => setDeleteAdminPass(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="modal-foot flex justify-between items-center p-3.5 bg-slate-50 border-t border-slate-100">
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => setDeleteAdminModal(null)}
+                  disabled={deletingAdmin}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn small danger inline-flex items-center gap-1.5 cursor-pointer"
+                  disabled={deletingAdmin || !deleteAdminPass}
+                >
+                  <Trash2 size={13} />
+                  <span>{deletingAdmin ? 'Deleting Administrator...' : 'Permanently Delete Administrator'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

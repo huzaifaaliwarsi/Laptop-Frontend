@@ -118,9 +118,9 @@ export default function NewBranchPage() {
 
   if (loading) {
     return (
-      <div className="p-16 text-center text-slate-500">
-        <div className="loader loader-lg mx-auto mb-3"></div>
-        <p className="text-xs font-semibold m-0">Checking branch limit...</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-2.5 text-slate-500">
+        <div className="loader loader-sm"></div>
+        <span className="text-xs font-semibold text-slate-500">Loading...</span>
       </div>
     );
   }

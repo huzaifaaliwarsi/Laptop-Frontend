@@ -7,45 +7,156 @@ import { useToast } from '../components/common/Toast';
 
 const AuthContext = createContext(null);
 
+// Unified Per-Branch Branding Cache:
+// All branding metadata AND logo_data are stored permanently in localStorage keyed by branch ID.
+// This ensures that:
+// 1. On first-ever load, once fetched, logos persist across all tabs, windows, and browser restarts.
+// 2. On switching branches, the target branch's logo renders INSTANTLY with 0ms delay.
+// 3. Fallback to sessionStorage if localStorage quota is ever exceeded.
+
+const CACHE_PREFIX = 'branding_cache_';
+const META_PREFIX  = 'branding_meta_';
+const LOGO_PREFIX  = 'branding_logo_';
+const LEGACY_KEY   = 'companyBranding_cache';
+
+function readBrandingFromCache(branchId) {
+  if (typeof window === 'undefined' || !branchId) return null;
+  const id = String(branchId);
+
+  // 1. Primary unified persistent localStorage cache
+  try {
+    const raw = localStorage.getItem(`${CACHE_PREFIX}${id}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return { ...parsed, branchId: id };
+      }
+    }
+  } catch (_) {}
+
+  // 2. Mirror in sessionStorage
+  try {
+    const sessionStored = sessionStorage.getItem(`${CACHE_PREFIX}${id}`);
+    if (sessionStored) {
+      const parsed = JSON.parse(sessionStored);
+      if (parsed && typeof parsed === 'object') {
+        try { localStorage.setItem(`${CACHE_PREFIX}${id}`, sessionStored); } catch (_) {}
+        return { ...parsed, branchId: id };
+      }
+    }
+  } catch (_) {}
+
+  // 3. Backward-compatibility: migrate from separate meta + logo keys
+  try {
+    const metaRaw = localStorage.getItem(`${META_PREFIX}${id}`);
+    if (metaRaw) {
+      const meta = JSON.parse(metaRaw);
+      const logo = sessionStorage.getItem(`${LOGO_PREFIX}${id}`) || localStorage.getItem(`${LOGO_PREFIX}${id}`) || null;
+      const combined = { ...meta, logo_data: logo, branchId: id };
+      saveBrandingToCache(id, combined);
+      return combined;
+    }
+  } catch (_) {}
+
+  // 4. Migration from legacy single-key cache
+  try {
+    const oldRaw = localStorage.getItem(LEGACY_KEY);
+    if (oldRaw) {
+      const old = JSON.parse(oldRaw);
+      const migrated = { ...old, branchId: id };
+      saveBrandingToCache(id, migrated);
+      localStorage.removeItem(LEGACY_KEY);
+      return migrated;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+function saveBrandingToCache(branchId, data) {
+  if (typeof window === 'undefined' || !branchId || !data) return;
+  const id = String(branchId);
+  const payload = { ...data, branchId: id };
+  const serialized = JSON.stringify(payload);
+
+  // 1. Primary write to persistent localStorage
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${id}`, serialized);
+    // Also mirror to sessionStorage
+    try { sessionStorage.setItem(`${CACHE_PREFIX}${id}`, serialized); } catch (_) {}
+    return;
+  } catch (err) {
+    console.warn(`[BrandingCache] localStorage write failed for branch ${id}:`, err?.message);
+  }
+
+  // 2. Clean old/legacy entries if quota was hit, then retry
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('branding_meta_') || key.startsWith('branding_logo_')) {
+        localStorage.removeItem(key);
+      }
+    }
+    localStorage.setItem(`${CACHE_PREFIX}${id}`, serialized);
+    return;
+  } catch (_) {}
+
+  // 3. Fallback to sessionStorage if localStorage is completely blocked
+  try {
+    sessionStorage.setItem(`${CACHE_PREFIX}${id}`, serialized);
+  } catch (_) {}
+}
+
+const DEFAULT_BRANDING = {
+  company_name: 'Saad Communication',
+  tagline: 'Retail & Repair Management System',
+  invoice_subtitle: 'Retail - Inventory - Repair',
+  phone: '',
+  email: '',
+  tax_number: '',
+  address: '',
+  invoice_footer: 'Thank you for choosing us. We appreciate your business.',
+  logo_data: null,
+  branchId: '1'
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [activeBranch, setActiveBranch] = useState(null); // null = not resolved yet
+  const [activeBranch, setActiveBranch] = useState(null);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [companyBranding, setCompanyBranding] = useState({
-    company_name: 'Saad Communication',
-    tagline: 'Retail & Repair Management System',
-    invoice_subtitle: 'Retail • Inventory • Repair',
-    phone: '',
-    email: '',
-    tax_number: '',
-    address: '',
-    invoice_footer: 'Thank you for choosing us. We appreciate your business.',
-    logo_data: null
+  const [companyBranding, setCompanyBranding] = useState(() => {
+    const storedBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+    const cached = readBrandingFromCache(storedBId);
+    if (cached) return cached;
+    return { ...DEFAULT_BRANDING, branchId: storedBId };
   });
 
-  // Use refs for values needed inside callbacks to avoid stale closures
   const userRef = useRef(null);
   const branchesRef = useRef([]);
-
   const { toast } = useToast();
 
   const loadCompanyBranding = useCallback(async (forBranchId = null) => {
     try {
-      const targetBranchId = forBranchId ||
-        (typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1');
-      // api.get(endpoint, headers, options) — 2nd arg is headers directly
+      const targetBranchId = String(
+        forBranchId || (typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1')
+      );
       const res = await api.get(
         '/settings/company',
-        { 'X-Branch-Id': String(targetBranchId) },
-        { noCache: true }
+        { 'X-Branch-Id': targetBranchId }
       );
       if (res.success && res.data) {
-        setCompanyBranding({ ...res.data, branchId: String(targetBranchId) });
+        const fresh = { ...res.data, branchId: targetBranchId };
+        saveBrandingToCache(targetBranchId, fresh);
+        const currentActive = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
+        if (String(currentActive) === targetBranchId) {
+          setCompanyBranding(fresh);
+        }
+        return fresh;
       }
     } catch (err) {
       console.error('[Company Branding Load Error]:', err);
     }
+    return null;
   }, []);
 
   const loadBranches = useCallback(async () => {
@@ -55,16 +166,20 @@ export function AuthProvider({ children }) {
         setBranches(res.data);
         branchesRef.current = res.data;
 
+        // Pre-fetch and cache branding for ALL branches in background
+        // Guarantees immediate zero-flash logo display for all branches
+        res.data.forEach(b => {
+          if (b?.id) {
+            loadCompanyBranding(String(b.id));
+          }
+        });
+
         if (typeof window !== 'undefined') {
           const storedBId = localStorage.getItem('activeBranchId');
           if (storedBId) {
             const matched = res.data.find(b => String(b.id) === String(storedBId));
-            if (matched) {
-              setActiveBranch(matched);
-              return matched;
-            }
+            if (matched) { setActiveBranch(matched); return matched; }
           }
-          // Default to branch 1 if nothing stored
           const defaultBranch = res.data.find(b => b.id === 1) || res.data[0];
           if (defaultBranch) {
             setActiveBranch(defaultBranch);
@@ -73,13 +188,11 @@ export function AuthProvider({ children }) {
           }
         }
       }
-    } catch (err) {
-      console.error('[Load Branches Error]:', err);
-    }
+    } catch (err) { console.error('[Load Branches Error]:', err); }
     return null;
-  }, []);
+  }, [loadCompanyBranding]);
 
-  const checkAuth = useCallback(async () => {
+  const checkAuth = useCallback(async (onBranchResolved = null) => {
     try {
       setLoading(true);
       const res = await api.get('/auth/me');
@@ -88,17 +201,14 @@ export function AuthProvider({ children }) {
         userRef.current = res.data.user;
         if (res.data.branch) {
           setActiveBranch(res.data.branch);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('activeBranchId', String(res.data.branch.id));
-          }
+          const resolvedBranchId = String(res.data.branch.id);
+          if (typeof window !== 'undefined') localStorage.setItem('activeBranchId', resolvedBranchId);
+          if (onBranchResolved) onBranchResolved(resolvedBranchId);
         }
         const socket = getSocket();
         if (socket) {
           socket.emit('join_portal', res.data.user.role);
-          socket.emit('join_branch', {
-            branchId: res.data.branch?.id || 1,
-            role: res.data.user.role
-          });
+          socket.emit('join_branch', { branchId: res.data.branch?.id || 1, role: res.data.user.role });
         }
       } else {
         setUser(null);
@@ -112,26 +222,30 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // On mount: resolve stored branch, load branding, load branch list, check auth
   useEffect(() => {
     const storedBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
-    checkAuth();
-    loadBranches();
     loadCompanyBranding(storedBId);
+    checkAuth((resolvedBranchId) => {
+      if (resolvedBranchId && resolvedBranchId !== String(storedBId)) {
+        const correctCache = readBrandingFromCache(resolvedBranchId);
+        if (correctCache) setCompanyBranding(correctCache);
+        loadCompanyBranding(resolvedBranchId);
+      }
+    });
+    loadBranches();
   }, [checkAuth, loadCompanyBranding, loadBranches]);
 
-  // Real-time socket events
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
     const handleBrandingUpdated = (data) => {
       const activeBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
-      if (!data.branchId || String(data.branchId) === String(activeBId)) {
-        setCompanyBranding(data);
+      const targetBId = String(data.branchId || activeBId);
+      saveBrandingToCache(targetBId, data);
+      if (String(activeBId) === targetBId) {
+        setCompanyBranding({ ...data, branchId: targetBId });
       }
     };
-
     const handleStaffStatus = (data) => {
       const currentUser = userRef.current;
       if (currentUser && currentUser.id === data.id && data.status === 'Inactive') {
@@ -139,21 +253,14 @@ export function AuthProvider({ children }) {
         toast('Your account has been deactivated.', 'error');
       }
     };
-
     socket.on('settings.company_updated', handleBrandingUpdated);
     socket.on('staff.status_changed', handleStaffStatus);
-
     return () => {
       socket.off('settings.company_updated', handleBrandingUpdated);
       socket.off('staff.status_changed', handleStaffStatus);
     };
   }, [toast]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * switchBranch — Super Admin only.
-   * Sets localStorage, clears cache, updates state, navigates to /dashboard.
-   * Uses refs to avoid stale closure on role/branches.
-   */
   const switchBranch = useCallback(async (branchId) => {
     try {
       const currentUser = userRef.current;
@@ -161,49 +268,54 @@ export function AuthProvider({ children }) {
         toast('Branch switching is restricted to Platform Super Admin.', 'error');
         return;
       }
-
       const numericId = parseInt(branchId, 10);
-      if (isNaN(numericId) || numericId < 1) {
-        toast('Invalid branch ID.', 'error');
-        return;
-      }
-
+      if (isNaN(numericId) || numericId < 1) { toast('Invalid branch ID.', 'error'); return; }
       if (typeof window !== 'undefined') {
-        // 1. Commit the new activeBranchId to localStorage FIRST
-        localStorage.setItem('activeBranchId', String(numericId));
+        const idStr = String(numericId);
+        localStorage.setItem('activeBranchId', idStr);
         localStorage.setItem('portalView', 'admin');
 
-        // 2. Clear old companyBranding immediately so it never bleeds into new branch
-        setCompanyBranding(null);
+        // Immediately update state with target branch branding from persistent cache
+        const cachedBranding = readBrandingFromCache(idStr);
+        if (cachedBranding) {
+          setCompanyBranding(cachedBranding);
+        }
 
-        // 3. Nuke all client-side API cache to prevent cross-branch data bleed
         try {
           const mod = await import('../services/api');
           if (mod.clearClientCache) mod.clearClientCache();
-        } catch (_) { /* ignore */ }
+        } catch (_) { }
 
-        // 4. Update React state immediately with known target branch
         const knownBranches = branchesRef.current;
         const b = knownBranches.find(item => item.id === numericId);
-        if (b) {
-          setActiveBranch(b);
-        }
-
-        // 5. Trigger fresh branding load for new branch
-        loadCompanyBranding(numericId);
+        if (b) setActiveBranch(b);
 
         toast(`Switching to ${b?.branch_name || 'Branch ' + numericId}...`);
 
-        // 6. Hard navigate to /dashboard — fully remounts everything with new branch context
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 250);
+        // Wait for branding fetch to complete & save to cache before navigating (capped at 400ms)
+        await Promise.race([
+          loadCompanyBranding(idStr),
+          new Promise(r => setTimeout(r, 400))
+        ]);
+
+        const userRole = userRef.current?.role;
+        window.location.href = userRole === 'technician' ? '/technician' : '/dashboard';
       }
     } catch (err) {
       console.error('Error switching branch:', err);
       toast('Failed to switch branch. Please try again.', 'error');
     }
   }, [loadCompanyBranding, toast]);
+
+  const updateBranding = useCallback((updater) => {
+    setCompanyBranding(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const bId = next?.branchId || prev?.branchId || (typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1');
+      const enriched = { ...next, branchId: String(bId) };
+      saveBrandingToCache(bId, enriched);
+      return enriched;
+    });
+  }, []);
 
   const login = async (username, password, portal) => {
     try {
@@ -213,24 +325,19 @@ export function AuthProvider({ children }) {
       } else {
         res = await api.post('/auth/login', { username, password, portal });
       }
-
       if (res.success && res.data) {
-        if (res.data.token) {
-          localStorage.setItem('token', res.data.token);
-        }
+        if (res.data.token) localStorage.setItem('token', res.data.token);
         if (res.data.branch) {
           setActiveBranch(res.data.branch);
           localStorage.setItem('activeBranchId', String(res.data.branch.id));
+          loadCompanyBranding(String(res.data.branch.id));
         }
         setUser(res.data.user);
         userRef.current = res.data.user;
         const socket = getSocket();
         if (socket) {
           socket.emit('join_portal', res.data.user.role);
-          socket.emit('join_branch', {
-            branchId: res.data.branch?.id || 1,
-            role: res.data.user.role
-          });
+          socket.emit('join_branch', { branchId: res.data.branch?.id || 1, role: res.data.user.role });
         }
         toast(`Welcome, ${res.data.user.name || res.data.user.username}!`);
         return { success: true, user: res.data.user };
@@ -243,11 +350,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch (err) {
-      console.error(err);
-    } finally {
+    try { await api.post('/auth/logout'); } catch (err) { console.error(err); } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('activeBranchId');
       localStorage.removeItem('portalView');
@@ -258,21 +361,15 @@ export function AuthProvider({ children }) {
   };
 
   const [activePortalView, setActivePortalView] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('portalView') || 'super_admin';
-    }
+    if (typeof window !== 'undefined') return localStorage.getItem('portalView') || 'super_admin';
     return 'super_admin';
   });
 
   const switchPortalView = useCallback((targetView) => {
     const currentUser = userRef.current;
-    if (!currentUser || currentUser.role !== 'super_admin') {
-      return;
-    }
+    if (!currentUser || currentUser.role !== 'super_admin') return;
     setActivePortalView(targetView);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('portalView', targetView);
-    }
+    if (typeof window !== 'undefined') localStorage.setItem('portalView', targetView);
   }, []);
 
   return (
@@ -292,7 +389,7 @@ export function AuthProvider({ children }) {
         loading,
         companyBranding,
         refreshBranding: loadCompanyBranding,
-        updateBranding: setCompanyBranding,
+        updateBranding,
         login,
         logout,
         checkAuth
@@ -305,8 +402,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

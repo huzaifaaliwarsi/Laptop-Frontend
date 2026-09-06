@@ -24,8 +24,14 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const isSuperAdminView = isSuperAdmin && (pathname.startsWith('/super-admin') || activePortalView === 'super_admin');
   
-  // Only use companyBranding if it matches the current activeBranch id
-  const isMatchingBranding = companyBranding && String(companyBranding.branchId || '') === String(activeBranch?.id || '');
+  // Consider branding "matching" when:
+  //  (a) activeBranch has not yet resolved (null) — avoids logo flash on first load, OR
+  //  (b) the branding's branchId matches the resolved activeBranch id
+  const isMatchingBranding = companyBranding && (
+    activeBranch === null ||
+    !companyBranding.branchId ||
+    String(companyBranding.branchId || '') === String(activeBranch?.id || '')
+  );
   const rawBranchName = activeBranch?.branch_name || (isMatchingBranding ? companyBranding?.company_name : null) || 'Saad Communication';
   const cleanBranchName = rawBranchName.replace(/\s*\(Main Branch\)\s*/i, '').trim() || 'Saad Communication';
   const displayName = isSuperAdminView

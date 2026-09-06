@@ -6,9 +6,11 @@ import Icon from '../../components/common/Icon';
 import StaffModal from '../../components/modules/staff/StaffModal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
+import { useAuth } from '../../context/AuthContext';
 
 export default function StaffPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,26 +32,43 @@ export default function StaffPage() {
     loadStaff();
   }, []);
 
- const handleToggleStatus = async (staff) => {
-  try {
-    const currentStatus = String(staff.status).toLowerCase();
-    const nextStatus = currentStatus === 'active' ? 'Inactive' : 'Active';
-
-    const res = await api.patch(`/staff/${staff.id}/status`, {
-      status: nextStatus
-    });
-
-    if (res.success) {
-      toast(res.message || `Staff status changed to ${nextStatus}`);
-      loadStaff();
-    } else {
-      toast(res.message || 'Status update failed', 'error');
+  const handleToggleStatus = async (staff) => {
+    if (staff.id === user?.id) {
+      toast('You cannot deactivate your own account.', 'error');
+      return;
     }
-  } catch (err) {
-    toast(err.message || 'Error updating status', 'error');
-  }
-};
+    if (staff.role === 'admin' || staff.username?.toLowerCase() === 'admin') {
+      toast('Branch Administrator accounts can only be activated or deactivated by Super Admin.', 'error');
+      return;
+    }
+    try {
+      const currentStatus = String(staff.status).toLowerCase();
+      const nextStatus = currentStatus === 'active' ? 'Inactive' : 'Active';
+
+      const res = await api.patch(`/staff/${staff.id}/status`, {
+        status: nextStatus
+      });
+
+      if (res.success) {
+        toast(res.message || `Staff status changed to ${nextStatus}`);
+        loadStaff();
+      } else {
+        toast(res.message || 'Status update failed', 'error');
+      }
+    } catch (err) {
+      toast(err.message || 'Error updating status', 'error');
+    }
+  };
+
   const handleDelete = async (staff) => {
+    if (staff.id === user?.id) {
+      toast('You cannot delete your own account.', 'error');
+      return;
+    }
+    if (staff.role === 'admin' || staff.username?.toLowerCase() === 'admin') {
+      toast('Branch Administrator accounts can only be deleted by Super Admin.', 'error');
+      return;
+    }
     if (!confirm(`Delete staff account for ${staff.name} (${staff.username})?`)) return;
     try {
       const res = await api.delete(`/staff/${staff.id}`);
@@ -121,30 +140,39 @@ export default function StaffPage() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn small"
-                            onClick={() => handleToggleStatus(st)}
-                          >
-                            {st.status === 'Active' ? 'Deactivate' : 'Activate'}
-                          </button>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+                          {st.id !== user?.id && st.role !== 'admin' && st.username?.toLowerCase() !== 'admin' && (
+                            <button
+                              type="button"
+                              className="btn small"
+                              onClick={() => handleToggleStatus(st)}
+                            >
+                              {st.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="icon-action"
                             onClick={() => setEditingStaff(st)}
+                            title="Edit Staff"
                           >
                             <Icon name="edit" />
                           </button>
-                          {st.username !== 'admin' && (
+                          {st.id !== user?.id && st.role !== 'admin' && st.username?.toLowerCase() !== 'admin' && (
                             <button
                               type="button"
                               className="icon-action"
                               style={{ color: 'var(--danger)' }}
                               onClick={() => handleDelete(st)}
+                              title="Delete Staff"
                             >
                               <Icon name="trash" />
                             </button>
+                          )}
+                          {st.id === user?.id && (
+                            <span className="badge text-2xs font-bold" style={{ background: '#f1f5f9', color: '#64748b' }} title="Your active logged-in account">
+                              You
+                            </span>
                           )}
                         </div>
                       </td>

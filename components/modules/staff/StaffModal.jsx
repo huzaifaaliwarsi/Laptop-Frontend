@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
+import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 
 export default function StaffModal({
@@ -12,6 +13,7 @@ export default function StaffModal({
   onSuccess
 }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('sales');
@@ -43,9 +45,20 @@ export default function StaffModal({
     }
   }, [isOpen, staff]);
 
+  // Primary branch admin username 'admin' is protected for routing
+  const isPrimaryAdmin = !!(staff && String(staff.username || '').toLowerCase() === 'admin');
+  const isSelfOrAdmin = !!(staff && (
+    String(staff.id) === String(user?.id) ||
+    staff.role === 'admin' ||
+    String(staff.username || '').toLowerCase() === 'admin'
+  ));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !name.trim()) {
+    const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '');
+    const cleanName = name.trim();
+
+    if (!cleanUser || !cleanName) {
       toast('Username and full name are required', 'error');
       return;
     }
@@ -53,18 +66,22 @@ export default function StaffModal({
       toast('Password is required for new staff account', 'error');
       return;
     }
+    if (isSelfOrAdmin && status === 'Inactive') {
+      toast('You cannot deactivate your own account or an administrator account.', 'error');
+      return;
+    }
 
     setSubmitting(true);
     try {
       const cleanPhone = phone ? phone.trim() : '';
       const payload = {
-        username: username.trim().toLowerCase(),
-        name: name.trim(),
+        username: cleanUser,
+        name: cleanName,
         role,
-        designation: designation.trim(),
+        designation: designation ? designation.trim() : '',
         contact: cleanPhone,
         phone: cleanPhone,
-        status
+        status: isSelfOrAdmin ? 'Active' : status
       };
       if (password) {
         payload.password = password;
@@ -85,7 +102,7 @@ export default function StaffModal({
         toast(res.message || 'Error saving staff member', 'error');
       }
     } catch (err) {
-      toast(err.message || 'This user already exists', 'error');
+      toast(err.message || 'This username or phone already exists', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +116,7 @@ export default function StaffModal({
       subtitle="Configure portal access role and credentials"
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
           <button
@@ -108,7 +125,7 @@ export default function StaffModal({
             className="btn primary"
             disabled={submitting}
           >
-            {submitting ? 'Saving...' : 'Save Staff Account'}
+            {submitting ? 'Saving...' : (staff ? 'Update Account' : 'Save Staff Account')}
           </button>
         </>
       }
@@ -131,10 +148,10 @@ export default function StaffModal({
             <input
               className="input"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
               placeholder="e.g. ali_sales"
-              disabled={!!staff}
               required
+              disabled={isPrimaryAdmin}
             />
           </div>
 
@@ -150,6 +167,7 @@ export default function StaffModal({
                 else if (r === 'sales') setDesignation('Sales Executive');
                 else setDesignation('System Administrator');
               }}
+              disabled={isSelfOrAdmin}
               required
             >
               <option value="sales">Sales Staff Portal</option>
@@ -194,11 +212,12 @@ export default function StaffModal({
             <label>Account Status</label>
             <select
               className="select"
-              value={status}
+              value={isSelfOrAdmin ? 'Active' : status}
               onChange={(e) => setStatus(e.target.value)}
+              disabled={isSelfOrAdmin}
             >
               <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              {!isSelfOrAdmin && <option value="Inactive">Inactive</option>}
             </select>
           </div>
         </div>

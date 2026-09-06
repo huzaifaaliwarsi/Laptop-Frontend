@@ -12,8 +12,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const passwordInputRef = useRef(null);
 
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [companyName, setCompanyName] = useState('Saad Communication');
   const [tagline, setTagline] = useState('Retail and Repair management system');
@@ -28,14 +28,6 @@ export default function LoginScreen() {
       })
       .catch(() => { });
   }, []);
-
-  const handleQuickSelect = (u, p) => {
-    setUsername(u);
-    setPassword(p);
-    if (passwordInputRef.current) {
-      passwordInputRef.current.focus();
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,10 +44,15 @@ export default function LoginScreen() {
 
       if (!res.success) {
         toast(res.message || 'Invalid username or password', 'error');
-      } else if (res.user?.role === 'super_admin' || cleanUser === 'superadmin') {
-        router.push('/super-admin');
       } else {
-        router.push('/dashboard');
+        const userRole = res.user?.role || (cleanUser === 'superadmin' ? 'super_admin' : 'admin');
+        if (userRole === 'super_admin' || cleanUser === 'superadmin') {
+          router.push('/super-admin');
+        } else if (userRole === 'technician') {
+          router.push('/technician');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (err) {
       toast(err.message || 'Login error occurred', 'error');
@@ -120,46 +117,7 @@ export default function LoginScreen() {
             <h2 className="login-welcome-title">Welcome Back!</h2>
             <p className="login-welcome-sub">Sign in to access your designated operational portal.</p>
 
-            {/* Quick Access Chips: Super Admin, Admin, Sales, Technician */}
-            <div className="login-roles-section-top">
-              <div className="login-roles-label">Quick Access (Testing Mode)</div>
-              <div className="login-roles-row" style={{ flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className={`login-role-chip ${username === 'superadmin' ? 'active' : ''}`}
-                  onClick={() => handleQuickSelect('superadmin', 'SuperAdmin@Secure2026!')}
-                >
-                  <span className="login-chip-dot superadmin" />
-                  Super Admin
-                </button>
-                <button
-                  type="button"
-                  className={`login-role-chip ${username === 'admin' ? 'active' : ''}`}
-                  onClick={() => handleQuickSelect('admin', 'admin')}
-                >
-                  <span className="login-chip-dot admin" />
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  className={`login-role-chip ${username === 'sales' ? 'active' : ''}`}
-                  onClick={() => handleQuickSelect('sales', 'sales123')}
-                >
-                  <span className="login-chip-dot sales" />
-                  Sales
-                </button>
-                <button
-                  type="button"
-                  className={`login-role-chip ${username === 'tech' ? 'active' : ''}`}
-                  onClick={() => handleQuickSelect('tech', 'tech123')}
-                >
-                  <span className="login-chip-dot tech" />
-                  Technician
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="login-form">
+            <form onSubmit={handleSubmit} className="login-form" style={{ marginTop: '1.5rem' }}>
               <div className="login-field">
                 <label className="login-label">Username</label>
                 <input
@@ -167,8 +125,9 @@ export default function LoginScreen() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. superadmin, admin, sales, tech"
+                  placeholder="Enter your username"
                   required
+                  autoFocus
                   id="loginUsername"
                 />
               </div>
@@ -181,7 +140,7 @@ export default function LoginScreen() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   required
                   id="loginPassword"
                 />
