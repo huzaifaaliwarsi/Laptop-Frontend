@@ -815,6 +815,7 @@ export default function InventoryPage() {
         isOpen={isBulkCsvOpen}
         onClose={() => setIsBulkCsvOpen(false)}
         onSuccess={() => loadProducts()}
+        products={products}
       />
 
       <ProductHistoryModal
