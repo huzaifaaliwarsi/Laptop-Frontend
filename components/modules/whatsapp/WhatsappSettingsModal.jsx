@@ -27,6 +27,7 @@ export default function WhatsappSettingsModal({
   const [number, setNumber] = useState('');
   const [botEnabled, setBotEnabled] = useState(true);
   const [autoStatusNotifications, setAutoStatusNotifications] = useState(true);
+  const [autoInvoiceWhatsapp, setAutoInvoiceWhatsapp] = useState(true);
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [shopLocation, setShopLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +153,7 @@ export default function WhatsappSettingsModal({
             setNumber(res.data.number || '');
             setBotEnabled(res.data.bot_enabled !== false);
             setAutoStatusNotifications(res.data.auto_status_notifications !== false);
+            setAutoInvoiceWhatsapp(res.data.auto_invoice_whatsapp !== false);
             setWelcomeMessage(res.data.welcome_message || '');
             setShopLocation(res.data.shop_location || '');
           }
@@ -175,6 +177,7 @@ export default function WhatsappSettingsModal({
         number: number.trim(),
         botEnabled,
         autoStatusNotifications,
+        autoInvoiceWhatsapp,
         welcomeMessage: welcomeMessage.trim(),
         shopLocation: shopLocation.trim()
       });
@@ -506,6 +509,18 @@ export default function WhatsappSettingsModal({
               >
                 <option value="Yes">Send Automated Updates on Status Change</option>
                 <option value="No">Do Not Send Auto Updates</option>
+              </select>
+            </div>
+
+            <div className="field span-6">
+              <label>Auto-Send PDF Invoices on WhatsApp</label>
+              <select
+                className="select"
+                value={autoInvoiceWhatsapp ? 'Yes' : 'No'}
+                onChange={(e) => setAutoInvoiceWhatsapp(e.target.value === 'Yes')}
+              >
+                <option value="Yes">Auto-Send PDF to Customers & Vendors</option>
+                <option value="No">Manual Only</option>
               </select>
             </div>
 

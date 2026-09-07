@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from '../../common/Modal';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../common/Toast';
+import api from '../../../services/api';
 import InvoiceLayout from './InvoiceLayout';
 import { money, numStr, getTransactionConfig } from '../../../utils/formatters';
 
@@ -14,6 +16,8 @@ export default function InvoicePreviewModal({
   onVendorReturn
 }) {
   const { companyBranding } = useAuth();
+  const { toast } = useToast();
+  const [sendingWa, setSendingWa] = useState(false);
 
   if (!invoice) return null;
 
@@ -26,15 +30,43 @@ export default function InvoicePreviewModal({
     window.print();
   };
 
-  const handleWhatsApp = () => {
-    const phone = String(invoice.contact || '').replace(/\D/g, '');
+  const handleDownloadPdf = () => {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const baseUrl = backendUrl.replace(/\/+$/, '');
+    const finalUrl = baseUrl.endsWith('/api') ? `${baseUrl}/invoices/${invoice.id}/pdf` : `${baseUrl}/api/invoices/${invoice.id}/pdf`;
+    window.open(finalUrl, '_blank');
+  };
+
+  const handleWhatsApp = async () => {
+    const rawContact = invoice.contact;
+    const phone = String(rawContact || '').replace(/\D/g, '');
     if (!phone) {
-      alert('No contact number is available on this invoice.');
+      toast('No contact number is available on this invoice.', 'error');
       return;
     }
-    const normalized = phone.startsWith('0') ? '92' + phone.slice(1) : phone;
-    const msg = `${companyBranding.company_name || 'Retail & Repair Management'}\n${config.title}: ${invoice.invoiceNo || invoice.trackingId || invoice.id}\nTotal: PKR ${numStr(total)}\nPaid: PKR ${numStr(paid)}\nBalance: PKR ${numStr(balance)}\nThank you for choosing us!`;
-    window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');
+
+    setSendingWa(true);
+    try {
+      const res = await api.post(`/invoices/${invoice.id}/send-whatsapp`);
+      if (res.data?.delivered) {
+        toast(`✅ Invoice PDF sent to WhatsApp (${res.data.contact || phone})!`);
+      } else if (res.data?.wa_not_connected) {
+        toast('WhatsApp device not connected. Opening WhatsApp Web...', 'info');
+        const normalized = phone.startsWith('0') ? '92' + phone.slice(1) : phone;
+        const msg = `${companyBranding?.company_name || 'Retail & Repair Management'}\n${config.title}: ${invoice.invoiceNo || invoice.trackingId || invoice.id}\nTotal: PKR ${numStr(total)}\nPaid: PKR ${numStr(paid)}\nBalance: PKR ${numStr(balance)}\nThank you for choosing us!`;
+        window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');
+      } else {
+        toast(res.data?.message || 'Invoice logged in WhatsApp CRM', 'info');
+      }
+    } catch (err) {
+      console.warn('Backend WhatsApp dispatch error, opening WhatsApp web:', err);
+      toast('Opening WhatsApp Web...', 'info');
+      const normalized = phone.startsWith('0') ? '92' + phone.slice(1) : phone;
+      const msg = `${companyBranding?.company_name || 'Retail & Repair Management'}\n${config.title}: ${invoice.invoiceNo || invoice.trackingId || invoice.id}\nTotal: PKR ${numStr(total)}\nPaid: PKR ${numStr(paid)}\nBalance: PKR ${numStr(balance)}\nThank you for choosing us!`;
+      window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');
+    } finally {
+      setSendingWa(false);
+    }
   };
 
   return (
@@ -53,11 +85,17 @@ export default function InvoicePreviewModal({
           <button type="button" className="btn" onClick={handlePrint} id="printInvoiceBtn">
             Print Invoice
           </button>
-          <button type="button" className="btn primary" onClick={handlePrint} id="pdfInvoiceBtn">
-            Save as PDF
+          <button type="button" className="btn primary" onClick={handleDownloadPdf} id="pdfInvoiceBtn">
+            Download PDF
           </button>
-          <button type="button" className="btn success" onClick={handleWhatsApp} id="whatsappInvoiceBtn">
-            Send on WhatsApp
+          <button
+            type="button"
+            className="btn success"
+            onClick={handleWhatsApp}
+            id="whatsappInvoiceBtn"
+            disabled={sendingWa}
+          >
+            {sendingWa ? 'Sending WhatsApp PDF...' : 'Send on WhatsApp'}
           </button>
           {invoice.type === 'Sales Invoice' && !invoice.isVoided && onVoidSale && (
             <button
