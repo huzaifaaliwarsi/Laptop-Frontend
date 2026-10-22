@@ -93,7 +93,16 @@ export default function EditProductModal({
           vendorId: product.vendorId || product.sourceId || '',
           vendorName: product.vendorName || (product.sourceName !== 'Manual Entry' ? product.sourceName : '') || '',
           purchaseInvoiceNo: product.purchaseInvoiceNo || '',
-          purchaseDate: product.purchaseDate ? String(product.purchaseDate).split('T')[0] : new Date().toISOString().split('T')[0]
+          purchaseDate: product.purchaseDate ? String(product.purchaseDate).split('T')[0] : new Date().toISOString().split('T')[0],
+          customFields: product.custom_fields || product.customFields || {},
+          screenSize: product.screen_size || product.screenSize || '',
+          processor: product.processor || '',
+          ram: product.ram || '',
+          romSsd: product.rom_ssd || product.romSsd || '',
+          hardDrive: product.hard_drive || product.hardDrive || '',
+          graphicsCard: product.graphics_card || product.graphicsCard || '',
+          accessoryCategory: product.accessory_category || product.accessoryCategory || '',
+          description: product.description || ''
         });
 
         setPaidInput('');
@@ -182,12 +191,44 @@ export default function EditProductModal({
   const executeEditProduct = async () => {
     setSubmitting(true);
     try {
+      const customSpecs = formData.customFields && typeof formData.customFields === 'object'
+        ? Object.entries(formData.customFields)
+            .filter(([k, v]) => v && String(v).trim())
+            .map(([k, v]) => `${k}: ${String(v).trim()}`)
+        : [];
+
+      const firstCustomVal = formData.customFields && typeof formData.customFields === 'object'
+        ? Object.values(formData.customFields).find(v => v && String(v).trim())
+        : null;
+      const effectiveBrand = formData.brand?.trim() || formData.customFields?.Brand || formData.customFields?.brand || formData.category || 'General';
+      const effectiveModel = formData.model?.trim() || formData.productName?.trim() || formData.customFields?.Model || formData.customFields?.['Model / Product Name'] || firstCustomVal || formData.category || 'Item';
+
       const payload = {
         category: formData.category || formData.categoryName,
         categoryName: formData.category || formData.categoryName,
-        brand: formData.brand.trim(),
-        model: formData.model.trim(),
-        specifications: formData.others,
+        brand: effectiveBrand,
+        model: effectiveModel,
+        screenSize: formData.screenSize || null,
+        processor: formData.processor || null,
+        ram: formData.ram || null,
+        romSsd: formData.romSsd || null,
+        hardDrive: formData.hardDrive || null,
+        graphicsCard: formData.graphicsCard || null,
+        accessoryCategory: formData.accessoryCategory || null,
+        description: formData.description || null,
+        customFields: formData.customFields || {},
+        specifications: [
+          formData.screenSize && `${formData.screenSize}`,
+          formData.processor && `CPU: ${formData.processor}`,
+          formData.ram && `RAM: ${formData.ram}`,
+          formData.romSsd && `SSD: ${formData.romSsd}`,
+          formData.hardDrive && `HDD: ${formData.hardDrive}`,
+          formData.graphicsCard && `GPU: ${formData.graphicsCard}`,
+          formData.accessoryCategory && `Type: ${formData.accessoryCategory}`,
+          formData.description,
+          ...customSpecs,
+          formData.others
+        ].filter(Boolean).join(' • '),
         condition: formData.condition,
         quantity: qty,
         lowStockAlert: parseInt(formData.lowStockAlert || 1, 10),
@@ -221,8 +262,8 @@ export default function EditProductModal({
     e.preventDefault();
     if (!product) return;
 
-    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
-      toast('Category, Brand and Model are required', 'error');
+    if (!formData.category) {
+      toast('Please select a category', 'error');
       return;
     }
 

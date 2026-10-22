@@ -55,7 +55,8 @@ export default function AddProductModal({
     vendorId: '',
     vendorName: '',
     purchaseInvoiceNo: '',
-    purchaseDate: new Date().toISOString().split('T')[0]
+    purchaseDate: new Date().toISOString().split('T')[0],
+    customFields: {}
   });
 
   const loadInitialData = () => {
@@ -110,7 +111,8 @@ export default function AddProductModal({
         vendorId: '',
         vendorName: '',
         purchaseInvoiceNo: '',
-        purchaseDate: new Date().toISOString().split('T')[0]
+        purchaseDate: new Date().toISOString().split('T')[0],
+        customFields: {}
       });
 
       return () => {
@@ -200,11 +202,32 @@ export default function AddProductModal({
 
     setSubmitting(true);
     try {
+      const customSpecs = formData.customFields && typeof formData.customFields === 'object'
+        ? Object.entries(formData.customFields)
+            .filter(([k, v]) => v && String(v).trim())
+            .map(([k, v]) => `${k}: ${String(v).trim()}`)
+        : [];
+
+      const firstCustomVal = formData.customFields && typeof formData.customFields === 'object'
+        ? Object.values(formData.customFields).find(v => v && String(v).trim())
+        : null;
+      const effectiveBrand = formData.brand?.trim() || formData.customFields?.Brand || formData.customFields?.brand || formData.category || 'General';
+      const effectiveModel = formData.model?.trim() || formData.productName?.trim() || formData.customFields?.Model || formData.customFields?.['Model / Product Name'] || firstCustomVal || formData.category || 'Item';
+
       const payload = {
         category: formData.category || formData.categoryName || 'Laptop',
         categoryName: formData.category || formData.categoryName || 'Laptop',
-        brand: formData.brand.trim(),
-        model: formData.model.trim(),
+        brand: effectiveBrand,
+        model: effectiveModel,
+        screenSize: formData.screenSize || null,
+        processor: formData.processor || null,
+        ram: formData.ram || null,
+        romSsd: formData.romSsd || null,
+        hardDrive: formData.hardDrive || null,
+        graphicsCard: formData.graphicsCard || null,
+        accessoryCategory: formData.accessoryCategory || null,
+        description: formData.description || null,
+        customFields: formData.customFields || {},
         specifications: [
           formData.screenSize && `${formData.screenSize}`,
           formData.processor && `CPU: ${formData.processor}`,
@@ -214,6 +237,7 @@ export default function AddProductModal({
           formData.graphicsCard && `GPU: ${formData.graphicsCard}`,
           formData.accessoryCategory && `Type: ${formData.accessoryCategory}`,
           formData.description,
+          ...customSpecs,
           formData.others
         ].filter(Boolean).join(' • '),
         condition: formData.condition,
@@ -248,8 +272,8 @@ export default function AddProductModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.category || !formData.brand.trim() || !formData.model.trim()) {
-      toast('Category, Brand and Model are required', 'error');
+    if (!formData.category) {
+      toast('Please select a category', 'error');
       return;
     }
 
