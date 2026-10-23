@@ -48,7 +48,7 @@ export default function WhatsappSettingsModal({
 
   const handleConnectQR = async () => {
     setLoadingStatus(true);
-    setWaStatus(prev => ({ ...prev, connecting: true }));
+    setWaStatus(prev => ({ ...prev, connecting: true, linking: false, qr: null }));
     try {
       const res = await api.post('/whatsapp/connect');
       if (res.success && res.data) {
@@ -130,21 +130,21 @@ export default function WhatsappSettingsModal({
             if (data.branchId && String(data.branchId) !== String(currentBId)) {
               return;
             }
-            setWaStatus(prev => ({ ...prev, qr: data.qr, connecting: false }));
+            setWaStatus(prev => ({ ...prev, qr: data.qr, connecting: false, linking: false }));
           }
         };
         socket.on('whatsapp:status', handleStatus);
         socket.on('whatsapp:qr', handleQr);
       }
 
-      // Safety polling interval
+      // Fast responsive polling fallback (1.2s)
       const interval = setInterval(() => {
-        api.get('/whatsapp/status').then(res => {
+        api.get('/whatsapp/status', { noCache: true }).then(res => {
           if (res.success && res.data) {
             setWaStatus(prev => ({ ...prev, ...res.data }));
           }
         }).catch(() => {});
-      }, 2500);
+      }, 1200);
 
       api.get('/whatsapp/settings')
         .then(res => {
@@ -353,6 +353,16 @@ export default function WhatsappSettingsModal({
                       <RefreshCw size={12} className={loadingStatus ? 'spin' : ''} /> Refresh New QR
                     </button>
                   </>
+                ) : waStatus.linking ? (
+                  <div style={{ padding: '40px 12px', color: 'var(--text)' }}>
+                    <div className="loader loader-md mx-auto mb-3" style={{ borderTopColor: '#059669' }}></div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#059669' }}>
+                      ✅ QR Code Scanned!
+                    </p>
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#334155' }}>
+                      Finalizing Multi-Device link & saving keys...
+                    </p>
+                  </div>
                 ) : loadingStatus || waStatus.connecting ? (
                   <div style={{ padding: '44px 12px', color: 'var(--text)' }}>
                     <div className="loader loader-md mx-auto mb-3"></div>

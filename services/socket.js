@@ -43,12 +43,14 @@ export const getSocket = () => {
     }
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       socket = io(socketUrl, {
+        auth: { token },
         withCredentials: true,
         autoConnect: true,
         transports: ['websocket', 'polling'],
-        reconnectionAttempts: 3,
-        reconnectionDelay: 2000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         timeout: 5000
       });
 
