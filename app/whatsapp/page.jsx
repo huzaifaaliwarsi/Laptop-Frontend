@@ -127,9 +127,9 @@ export default function WhatsappPage() {
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <span className={`status-dot ${waStatus.connected ? 'connected' : 'disconnected'}`}></span>
               <div>
-                <strong>{waStatus.connected ? `WhatsApp Multi-Device Connected (+${waStatus.phone || ''})` : 'WhatsApp Device Not Connected'}</strong>
+                <strong>{waStatus.connected ? `WhatsApp Multi-Device Connected (+${waStatus.phone || ''})` : waStatus.reconnecting ? 'WhatsApp Reconnecting' : 'WhatsApp Device Not Connected'}</strong>
                 <div style={{ fontSize: 10, color: 'var(--muted)' }}>
-                  {waStatus.connected ? 'Ready to send live notifications & auto-replies' : 'Click "Connect WhatsApp (QR)" to link your phone'}
+                  {waStatus.connected ? 'Ready to send live notifications & auto-replies' : waStatus.error || (waStatus.reconnecting ? 'Your saved session is being restored automatically' : 'Click "Connect WhatsApp (QR)" to link your phone')}
                 </div>
               </div>
             </div>

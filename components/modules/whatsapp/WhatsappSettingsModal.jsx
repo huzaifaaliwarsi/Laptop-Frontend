@@ -269,18 +269,18 @@ export default function WhatsappSettingsModal({
               )}
               <div>
                 <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: waStatus.connected ? '#065f46' : '#92400e' }}>
-                  {waStatus.connected ? 'WhatsApp Connected & Active' : 'WhatsApp Device Not Connected'}
+                  {waStatus.connected ? 'WhatsApp Connected & Active' : waStatus.reconnecting ? 'WhatsApp Reconnecting' : 'WhatsApp Device Not Connected'}
                 </h4>
                 <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text)' }}>
                   {waStatus.connected
                     ? `Linked phone: +${waStatus.phone || 'Ready'} — Auto-repair notifications & real-time bot replies are active!`
-                    : 'Scan the QR code below using your mobile WhatsApp to start sending live notifications to customers.'}
+                    : waStatus.error || (waStatus.reconnecting ? 'Your device is still linked. Restoring the connection automatically.' : 'Scan the QR code below using your mobile WhatsApp to start sending live notifications to customers.')}
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              {waStatus.connected ? (
+              {waStatus.connected || waStatus.authenticated || waStatus.requiresRelink ? (
                 <button
                   type="button"
                   className="btn danger small"
@@ -367,7 +367,7 @@ export default function WhatsappSettingsModal({
                   <div style={{ padding: '44px 12px', color: 'var(--text)' }}>
                     <div className="loader loader-md mx-auto mb-3"></div>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#2563eb' }}>
-                      Generating live WhatsApp QR Code...
+                      {waStatus.reconnecting ? 'Restoring your saved WhatsApp session...' : 'Connecting to WhatsApp...'}
                     </p>
                     <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--muted)' }}>
                       Connecting to WhatsApp multi-device server

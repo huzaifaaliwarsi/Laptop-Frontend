@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // A production build must not overwrite a running dev server's chunks.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   reactStrictMode: false,
   async rewrites() {
     let backendUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
