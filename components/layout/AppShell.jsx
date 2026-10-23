@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoginScreen from './LoginScreen';
 import Sidebar from './Sidebar';
@@ -12,6 +12,15 @@ import TopRouteProgressBar from '../common/TopRouteProgressBar';
 export default function AppShell({ children }) {
   const { isAuthenticated, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <ProgressLoader fullScreen message="Please wait while the application is loading..." />;
+  }
 
   if (loading && !isAuthenticated) {
     return <ProgressLoader fullScreen message="Please wait while the application is loading..." />;
