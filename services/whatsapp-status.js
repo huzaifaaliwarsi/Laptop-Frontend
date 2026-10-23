@@ -26,10 +26,10 @@ let lifecycle = 0;
 
 export function publishWhatsAppStatus(next) {
   if (!next || (next.branchId && String(next.branchId) !== branch())) return;
-  if (status.branchId === next.branchId && next.updatedAt && status.updatedAt > next.updatedAt) return;
+  if (status.branchId === next.branchId && next.updatedAt && status.updatedAt && status.updatedAt > next.updatedAt && next.connected === status.connected) return;
   revision++;
   status = { ...status, ...next };
-  if (typeof window !== 'undefined' && status) {
+  if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(`wa_status_${branch()}`, JSON.stringify(status));
     } catch (_) {}
@@ -46,11 +46,11 @@ export async function refreshWhatsAppStatus() {
     listeners.forEach(listener => listener());
   }
   if (pending) return pending;
-  const requestedRevision = revision;
   pending = api.get('/whatsapp/status', { noCache: true })
     .then(res => {
-      // An older HTTP response must not overwrite a newer socket event.
-      if (res.success && branch() === requestedBranch && revision === requestedRevision) publishWhatsAppStatus(res.data);
+      if (res.success && branch() === requestedBranch && res.data) {
+        publishWhatsAppStatus(res.data);
+      }
     })
     .catch(() => {})
     .finally(() => { pending = null; });
