@@ -5,7 +5,8 @@ import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, LogOut, Smartphone,
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
-import { getSocket } from '../../../services/socket';
+import useWhatsAppStatus from '../../../services/useWhatsAppStatus';
+import { publishWhatsAppStatus, refreshWhatsAppStatus } from '../../../services/whatsapp-status';
 
 export default function WhatsappSettingsModal({
   isOpen,
@@ -16,7 +17,7 @@ export default function WhatsappSettingsModal({
   const [activeTab, setActiveTab] = useState('connection'); // 'connection' | 'bot'
 
   // Connection State
-  const [waStatus, setWaStatus] = useState({ connected: false, phone: null, qr: null, connecting: false });
+  const waStatus = useWhatsAppStatus(isOpen);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('Hello! This is a test message from your Laptop Repair Management POS system.');
@@ -32,34 +33,22 @@ export default function WhatsappSettingsModal({
   const [shopLocation, setShopLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchStatus = async () => {
-    setLoadingStatus(true);
-    try {
-      const res = await api.get('/whatsapp/status');
-      if (res.success && res.data) {
-        setWaStatus(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching WhatsApp status:', err);
-    } finally {
-      setLoadingStatus(false);
-    }
-  };
-
   const handleConnectQR = async () => {
     setLoadingStatus(true);
-    setWaStatus(prev => ({ ...prev, connecting: true, linking: false, qr: null }));
     try {
       const res = await api.post('/whatsapp/connect');
       if (res.success && res.data) {
-        setWaStatus(res.data);
-        if (res.data.qr) {
+        publishWhatsAppStatus(res.data);
+        if (res.data.error && !res.data.qr) {
+          toast(res.data.error, 'error');
+        } else if (res.data.qr) {
           toast('QR Code generated! Scan it with WhatsApp on your phone.');
         } else {
-          toast('Connecting to WhatsApp multi-device server, awaiting QR...');
+          toast(res.data.connected ? 'WhatsApp is connected.' : 'Connection started. The QR will appear here when ready.');
         }
       }
     } catch (err) {
+      refreshWhatsAppStatus();
       toast(err.message || 'Error generating QR code', 'error');
     } finally {
       setLoadingStatus(false);
@@ -73,7 +62,7 @@ export default function WhatsappSettingsModal({
       const res = await api.post('/whatsapp/disconnect');
       if (res.success) {
         toast('WhatsApp disconnected & session logged out.');
-        fetchStatus();
+        await refreshWhatsAppStatus();
       }
     } catch (err) {
       toast(err.message || 'Error disconnecting', 'error');
@@ -107,45 +96,6 @@ export default function WhatsappSettingsModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetchStatus();
-
-      // Real-time socket updates for QR code & device link events
-      const socket = getSocket();
-      let handleStatus = null;
-      let handleQr = null;
-
-      if (socket) {
-        handleStatus = (status) => {
-          if (status) {
-            const currentBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
-            if (status.branchId && String(status.branchId) !== String(currentBId)) {
-              return;
-            }
-            setWaStatus(prev => ({ ...prev, ...status }));
-          }
-        };
-        handleQr = (data) => {
-          if (data?.qr) {
-            const currentBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
-            if (data.branchId && String(data.branchId) !== String(currentBId)) {
-              return;
-            }
-            setWaStatus(prev => ({ ...prev, qr: data.qr, connecting: false, linking: false }));
-          }
-        };
-        socket.on('whatsapp:status', handleStatus);
-        socket.on('whatsapp:qr', handleQr);
-      }
-
-      // Fast responsive polling fallback (1.2s)
-      const interval = setInterval(() => {
-        api.get('/whatsapp/status', { noCache: true }).then(res => {
-          if (res.success && res.data) {
-            setWaStatus(prev => ({ ...prev, ...res.data }));
-          }
-        }).catch(() => {});
-      }, 1200);
-
       api.get('/whatsapp/settings')
         .then(res => {
           if (res.success && res.data) {
@@ -160,11 +110,6 @@ export default function WhatsappSettingsModal({
         })
         .catch(console.error);
 
-      return () => {
-        clearInterval(interval);
-        if (socket && handleStatus) socket.off('whatsapp:status', handleStatus);
-        if (socket && handleQr) socket.off('whatsapp:qr', handleQr);
-      };
     }
   }, [isOpen]);
 
@@ -370,7 +315,7 @@ export default function WhatsappSettingsModal({
                       {waStatus.reconnecting ? 'Restoring your saved WhatsApp session...' : 'Connecting to WhatsApp...'}
                     </p>
                     <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--muted)' }}>
-                      Connecting to WhatsApp multi-device server
+                      {waStatus.error || 'Connecting to WhatsApp multi-device server'}
                     </p>
                   </div>
                 ) : (

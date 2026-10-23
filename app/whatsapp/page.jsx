@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
+import useWhatsAppStatus from '../../services/useWhatsAppStatus';
 import Icon from '../../components/common/Icon';
 import WhatsappSimulatorModal from '../../components/modules/whatsapp/WhatsappSimulatorModal';
 import WhatsappSettingsModal from '../../components/modules/whatsapp/WhatsappSettingsModal';
@@ -101,23 +102,7 @@ export default function WhatsappPage() {
     }
   };
 
-  const [waStatus, setWaStatus] = useState({ connected: false, phone: null, qr: null });
-
-  const loadWaStatus = () => {
-    api.get('/whatsapp/status')
-      .then(res => {
-        if (res.success && res.data) {
-          setWaStatus(res.data);
-        }
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadWaStatus();
-    const interval = setInterval(loadWaStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const waStatus = useWhatsAppStatus();
 
   return (
     <>
