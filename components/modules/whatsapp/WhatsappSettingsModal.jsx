@@ -61,6 +61,20 @@ export default function WhatsappSettingsModal({
     try {
       const res = await api.post('/whatsapp/disconnect');
       if (res.success) {
+        if (typeof window !== 'undefined') {
+          const bId = localStorage.getItem('activeBranchId') || '1';
+          localStorage.removeItem(`wa_status_${bId}`);
+        }
+        publishWhatsAppStatus({
+          connected: false,
+          connecting: false,
+          linking: false,
+          qr: null,
+          phone: null,
+          authenticated: false,
+          name: null
+        });
+        setNumber('');
         toast('WhatsApp disconnected & session logged out.');
         await refreshWhatsAppStatus();
       }
