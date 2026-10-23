@@ -47,7 +47,8 @@ if (typeof window !== 'undefined') {
 async function apiRequest(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const isDrawerEndpoint = cleanEndpoint.includes('/accounts/drawer');
-  const noCache = options.noCache === true || isDrawerEndpoint || cleanEndpoint.split('?')[0] === '/whatsapp/status';
+  const isAuthEndpoint = cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/super-admin');
+  const noCache = options.noCache === true || isDrawerEndpoint || isAuthEndpoint || cleanEndpoint.split('?')[0] === '/whatsapp/status';
   const cacheTtl = options.cacheTtl || 15000; // 15 seconds client cache for GETs
 
   // If noCache requested, append _t=timestamp to bust any HTTP/CDN cache (no custom header needed)

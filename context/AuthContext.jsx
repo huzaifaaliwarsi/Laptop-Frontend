@@ -120,10 +120,29 @@ const DEFAULT_BRANDING = {
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        if (storedUser && token) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (_) {}
+    }
+    return null;
+  });
   const [activeBranch, setActiveBranch] = useState(null);
   const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      if (storedUser && token) return false;
+    }
+    return true;
+  });
   const [companyBranding, setCompanyBranding] = useState(() => {
     const storedBId = typeof window !== 'undefined' ? (localStorage.getItem('activeBranchId') || '1') : '1';
     const cached = readBrandingFromCache(storedBId);
@@ -131,7 +150,7 @@ export function AuthProvider({ children }) {
     return { ...DEFAULT_BRANDING, branchId: storedBId };
   });
 
-  const userRef = useRef(null);
+  const userRef = useRef(user);
   const branchesRef = useRef([]);
   const { toast } = useToast();
 
@@ -193,12 +212,22 @@ export function AuthProvider({ children }) {
   }, [loadCompanyBranding]);
 
   const checkAuth = useCallback(async (onBranchResolved = null) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) {
+      setUser(null);
+      userRef.current = null;
+      if (typeof window !== 'undefined') localStorage.removeItem('user');
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
       const res = await api.get('/auth/me');
       if (res.success && res.data?.user) {
         setUser(res.data.user);
         userRef.current = res.data.user;
+        if (typeof window !== 'undefined') {
+          try { localStorage.setItem('user', JSON.stringify(res.data.user)); } catch (_) {}
+        }
         if (res.data.branch) {
           setActiveBranch(res.data.branch);
           const resolvedBranchId = String(res.data.branch.id);
@@ -210,13 +239,25 @@ export function AuthProvider({ children }) {
           socket.emit('join_portal', res.data.user.role);
           socket.emit('join_branch', { branchId: res.data.branch?.id || 1, role: res.data.user.role });
         }
-      } else {
+      } else if (res.success === false && (res.code === 'UNAUTHORIZED' || res.code === 'TOKEN_EXPIRED' || res.code === 'USER_INACTIVE' || res.code === 'NO_TOKEN')) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         setUser(null);
         userRef.current = null;
       }
     } catch (err) {
-      setUser(null);
-      userRef.current = null;
+      if (err.status === 401 || err.code === 'UNAUTHORIZED' || err.code === 'TOKEN_EXPIRED' || err.code === 'USER_INACTIVE') {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+        setUser(null);
+        userRef.current = null;
+      } else {
+        console.warn('[Auth] Server check failed; keeping persistent user session:', err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -327,6 +368,9 @@ export function AuthProvider({ children }) {
       }
       if (res.success && res.data) {
         if (res.data.token) localStorage.setItem('token', res.data.token);
+        if (res.data.user) {
+          try { localStorage.setItem('user', JSON.stringify(res.data.user)); } catch (_) {}
+        }
         if (res.data.branch) {
           setActiveBranch(res.data.branch);
           localStorage.setItem('activeBranchId', String(res.data.branch.id));
@@ -352,6 +396,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try { await api.post('/auth/logout'); } catch (err) { console.error(err); } finally {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       localStorage.removeItem('activeBranchId');
       localStorage.removeItem('portalView');
       setUser(null);
