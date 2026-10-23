@@ -13,7 +13,7 @@ export default function AppShell({ children }) {
   const { isAuthenticated, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  if (loading) {
+  if (loading && !isAuthenticated) {
     return <ProgressLoader fullScreen message="Please wait while the application is loading..." />;
   }
 

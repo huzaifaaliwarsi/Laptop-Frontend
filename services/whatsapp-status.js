@@ -2,19 +2,38 @@ import api from './api';
 import { getSocket } from './socket';
 
 const empty = { connected: false, connecting: false, qr: null, phone: null };
-let status = empty;
+
+const branch = () => typeof window === 'undefined' ? '1' : localStorage.getItem('activeBranchId') || '1';
+
+function getInitialStatus(branchId = '1') {
+  if (typeof window === 'undefined') return empty;
+  try {
+    const raw = localStorage.getItem(`wa_status_${branchId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (_) {}
+  return empty;
+}
+
+let status = getInitialStatus(branch());
 const listeners = new Set();
 let timer, socket, pending;
 let revision = 0;
 let activeBranch = null;
 let lifecycle = 0;
-const branch = () => typeof window === 'undefined' ? '1' : localStorage.getItem('activeBranchId') || '1';
 
 export function publishWhatsAppStatus(next) {
   if (!next || (next.branchId && String(next.branchId) !== branch())) return;
   if (status.branchId === next.branchId && next.updatedAt && status.updatedAt > next.updatedAt) return;
   revision++;
   status = { ...status, ...next };
+  if (typeof window !== 'undefined' && status) {
+    try {
+      localStorage.setItem(`wa_status_${branch()}`, JSON.stringify(status));
+    } catch (_) {}
+  }
   listeners.forEach(listener => listener());
 }
 
@@ -22,7 +41,7 @@ export async function refreshWhatsAppStatus() {
   const requestedBranch = branch();
   if (requestedBranch !== activeBranch) {
     activeBranch = requestedBranch;
-    status = empty;
+    status = getInitialStatus(requestedBranch);
     revision++;
     listeners.forEach(listener => listener());
   }
