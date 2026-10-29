@@ -16,7 +16,9 @@ import {
   MapPin,
   Phone,
   Mail,
-  Lock
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function NewBranchPage() {
@@ -40,6 +42,7 @@ export default function NewBranchPage() {
   const [adminName, setAdminName] = useState('');
   const [adminUsername, setAdminUsername] = useState('admin2');
   const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Opening Balances
   const [openingCash, setOpeningCash] = useState('0');
@@ -280,15 +283,25 @@ export default function NewBranchPage() {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Password * (Min 6 chars)</label>
-                <input
-                  className="input"
-                  type="password"
-                  placeholder="••••••••"
-                  value={adminPassword}
-                  onChange={e => setAdminPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
+                <div className="relative">
+                  <input
+                    className="input pr-9"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={adminPassword}
+                    onChange={e => setAdminPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -20,6 +20,9 @@ import {
   X,
   AlertTriangle,
   Eye,
+  EyeOff,
+  Copy,
+  Check,
   LogIn,
   Calendar,
   Phone,
@@ -204,12 +207,15 @@ export default function SuperAdminPage() {
   const [viewDetailsBranch, setViewDetailsBranch] = useState(null);
   const [loadingBranchDetails, setLoadingBranchDetails] = useState(false);
   const [branchDetailsError, setBranchDetailsError] = useState(null);
+  const [showViewAdminPassword, setShowViewAdminPassword] = useState(false);
+  const [copiedPass, setCopiedPass] = useState(false);
   const [resetModalBranch, setResetModalBranch] = useState(null);
   const [newAdminPass, setNewAdminPass] = useState('');
   const [savingPass, setSavingPass] = useState(false);
 
   const [editModalBranch, setEditModalBranch] = useState(null);
-  const [editForm, setEditForm] = useState({ branch_name: '', phone: '', email: '', city: '', address: '', admin_name: '' });
+  const [editForm, setEditForm] = useState({ branch_name: '', phone: '', email: '', city: '', address: '', admin_name: '', admin_username: '', admin_password: '' });
+  const [showEditAdminPassword, setShowEditAdminPassword] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete Modal
@@ -407,10 +413,13 @@ export default function SuperAdminPage() {
       email: branch.email || 'N/A',
       adminName: branch.adminName || branch.admin_name || 'N/A',
       adminUsername: branch.adminUsername || branch.admin_username || 'N/A',
+      adminPassword: branch.adminPassword || branch.admin_password || '',
+      admin_password: branch.admin_password || branch.adminPassword || '',
       createdAt: branch.createdAt || branch.created_at || null
     });
     setLoadingBranchDetails(true);
     setBranchDetailsError(null);
+    setShowViewAdminPassword(false);
 
     try {
       const res = await api.get(`/super-admin/branches/${bId}`);
@@ -424,6 +433,47 @@ export default function SuperAdminPage() {
     } finally {
       setLoadingBranchDetails(false);
     }
+  };
+
+  const handleCopyPassword = (text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedPass(true);
+    toast('Admin password copied to clipboard!', 'success');
+    setTimeout(() => setCopiedPass(false), 2000);
+  };
+
+  const handleOpenEditModal = async (branch) => {
+    if (!branch) return;
+    const bId = branch.branchId || branch.id;
+    const bCode = branch.branchCode || branch.branch_code || `BR-0${bId}`;
+    const bName = branch.branchName || branch.branch_name || '';
+
+    let fresh = branch;
+    try {
+      const res = await api.get(`/super-admin/branches/${bId}`);
+      if (res.success && res.data) {
+        fresh = res.data;
+      }
+    } catch (e) {}
+
+    setEditModalBranch({
+      ...fresh,
+      branchId: bId,
+      branchCode: bCode,
+      branchName: fresh.branch_name || bName
+    });
+    setEditForm({
+      branch_name: fresh.branch_name || bName,
+      phone: fresh.phone || '',
+      email: fresh.email || '',
+      city: fresh.city || '',
+      address: fresh.address || '',
+      admin_name: fresh.admin_name || fresh.adminName || '',
+      admin_username: fresh.admin_username || fresh.adminUsername || '',
+      admin_password: fresh.admin_password || ''
+    });
+    setShowEditAdminPassword(false);
   };
 
   const handleOpenDeleteModal = async (branch) => {
@@ -514,7 +564,7 @@ export default function SuperAdminPage() {
     try {
       const res = await api.put(`/super-admin/branches/${bId}`, editForm);
       if (res.success) {
-        toast('Branch profile updated successfully');
+        toast('Branch profile and admin credentials updated successfully', 'success');
         setEditModalBranch(null);
         reloadAllData();
       }
@@ -923,6 +973,16 @@ export default function SuperAdminPage() {
                     >
                       <Eye size={13} className="text-slate-500" />
                       <span>View</span>
+                    </button>
+
+                    {/* Edit Details Button */}
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                      onClick={() => handleOpenEditModal(b)}
+                    >
+                      <Edit3 size={12} className="text-slate-500" />
+                      <span>Edit</span>
                     </button>
 
                     {/* Active / Inactive Toggle Button */}
@@ -1415,23 +1475,82 @@ export default function SuperAdminPage() {
                   <span className="text-xs font-semibold text-slate-500">Loading...</span>
                 </div>
               ) : (
-                /* Business Profile Details */
-                <div>
-                  <strong className="text-xs text-slate-700 block mb-1.5">Branch Profile & Operational Details</strong>
-                  <div className="grid grid-cols-2 gap-2.5 text-xs bg-white border border-slate-200/80 rounded-xl p-3.5">
-                    <div><span>Branch Code:</span> <strong className="block font-bold text-blue-700">{viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'N/A'}</strong></div>
-                    <div><span>Branch Name:</span> <strong className="block font-semibold">{viewDetailsBranch.branch_name || viewDetailsBranch.branchName || 'N/A'}</strong></div>
-                    <div><span>Branch Manager:</span> <strong className="block">{viewDetailsBranch.admin_name || viewDetailsBranch.adminName || 'N/A'}</strong></div>
-                    <div><span>Admin Username:</span> <strong className="block"><code>{viewDetailsBranch.admin_username || viewDetailsBranch.adminUsername || 'N/A'}</code></strong></div>
-                    <div><span>City:</span> <strong className="block">{viewDetailsBranch.city || 'N/A'}</strong></div>
-                    <div><span>Phone:</span> <strong className="block">{viewDetailsBranch.phone || 'N/A'}</strong></div>
-                    <div><span>Email:</span> <strong className="block">{viewDetailsBranch.email || 'N/A'}</strong></div>
-                    <div><span>Tagline:</span> <strong className="block text-slate-600 truncate">{viewDetailsBranch.tagline || 'N/A'}</strong></div>
-                    {viewDetailsBranch.ntn && (
-                      <div><span>NTN / Tax ID:</span> <strong className="block font-mono">{viewDetailsBranch.ntn}</strong></div>
-                    )}
-                    <div><span>Registration Date:</span> <strong className="block">{fmtDate(viewDetailsBranch.created_at || viewDetailsBranch.createdAt)}</strong></div>
-                    <div className="col-span-2"><span>Physical Address:</span> <strong className="block">{viewDetailsBranch.address || 'N/A'}</strong></div>
+                <div className="space-y-3">
+                  {/* Branch Admin Credentials Card */}
+                  <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        <Shield size={14} className="text-blue-600" />
+                        <span>Branch Admin Credentials</span>
+                      </div>
+                      <span className="text-2xs font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                        Admin Access
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 text-xs">
+                      <div>
+                        <span className="text-2xs text-slate-500 block mb-0.5">Manager Name</span>
+                        <strong className="block text-slate-800 font-semibold">{viewDetailsBranch.admin_name || viewDetailsBranch.adminName || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-2xs text-slate-500 block mb-0.5">Admin Username</span>
+                        <code className="px-2 py-0.5 rounded bg-white border border-slate-200 text-blue-700 font-mono font-bold inline-block">
+                          {viewDetailsBranch.admin_username || viewDetailsBranch.adminUsername || 'N/A'}
+                        </code>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-2xs text-slate-500 block mb-0.5">Admin Password</span>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              type={showViewAdminPassword ? 'text' : 'password'}
+                              readOnly
+                              value={viewDetailsBranch.admin_password || viewDetailsBranch.adminPassword || ''}
+                              className="input text-xs font-mono pr-9 bg-white cursor-text select-all"
+                              placeholder={(viewDetailsBranch.admin_password || viewDetailsBranch.adminPassword) ? '••••••••' : 'No password saved'}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowViewAdminPassword(!showViewAdminPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                              title={showViewAdminPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showViewAdminPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          {(viewDetailsBranch.admin_password || viewDetailsBranch.adminPassword) && (
+                            <button
+                              type="button"
+                              className="btn small inline-flex items-center gap-1"
+                              onClick={() => handleCopyPassword(viewDetailsBranch.admin_password || viewDetailsBranch.adminPassword)}
+                              title="Copy password"
+                            >
+                              {copiedPass ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                              <span>{copiedPass ? 'Copied' : 'Copy'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Business Profile Details */}
+                  <div>
+                    <strong className="text-xs text-slate-700 block mb-1.5">Branch Profile & Operational Details</strong>
+                    <div className="grid grid-cols-2 gap-2.5 text-xs bg-white border border-slate-200/80 rounded-xl p-3.5">
+                      <div><span>Branch Code:</span> <strong className="block font-bold text-blue-700">{viewDetailsBranch.branch_code || viewDetailsBranch.branchCode || 'N/A'}</strong></div>
+                      <div><span>Branch Name:</span> <strong className="block font-semibold">{viewDetailsBranch.branch_name || viewDetailsBranch.branchName || 'N/A'}</strong></div>
+                      <div><span>City:</span> <strong className="block">{viewDetailsBranch.city || 'N/A'}</strong></div>
+                      <div><span>Phone:</span> <strong className="block">{viewDetailsBranch.phone || 'N/A'}</strong></div>
+                      <div><span>Email:</span> <strong className="block">{viewDetailsBranch.email || 'N/A'}</strong></div>
+                      <div><span>Tagline:</span> <strong className="block text-slate-600 truncate">{viewDetailsBranch.tagline || 'N/A'}</strong></div>
+                      {viewDetailsBranch.ntn && (
+                        <div><span>NTN / Tax ID:</span> <strong className="block font-mono">{viewDetailsBranch.ntn}</strong></div>
+                      )}
+                      <div><span>Registration Date:</span> <strong className="block">{fmtDate(viewDetailsBranch.created_at || viewDetailsBranch.createdAt)}</strong></div>
+                      <div className="col-span-2"><span>Physical Address:</span> <strong className="block">{viewDetailsBranch.address || 'N/A'}</strong></div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1461,8 +1580,11 @@ export default function SuperAdminPage() {
                       email: b.email || '',
                       city: b.city || '',
                       address: b.address || '',
-                      admin_name: b.admin_name || b.adminName || ''
+                      admin_name: b.admin_name || b.adminName || '',
+                      admin_username: b.admin_username || b.adminUsername || '',
+                      admin_password: b.admin_password || ''
                     });
+                    setShowEditAdminPassword(false);
                   }}
                 >
                   <Edit3 size={12} /> Edit Details
@@ -1523,6 +1645,59 @@ export default function SuperAdminPage() {
                 <div>
                   <label className="text-xs font-semibold text-slate-600 block mb-1">Address</label>
                   <input className="input" value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} />
+                </div>
+
+                {/* Branch Admin Credentials Section */}
+                <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    <Shield size={13} className="text-blue-600" />
+                    <span>Branch Admin Credentials</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">Manager Name</label>
+                      <input
+                        className="input"
+                        placeholder="Manager Name"
+                        value={editForm.admin_name}
+                        onChange={e => setEditForm({ ...editForm, admin_name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">Admin Username</label>
+                      <input
+                        className="input font-mono"
+                        placeholder="admin_username"
+                        value={editForm.admin_username}
+                        onChange={e => setEditForm({ ...editForm, admin_username: e.target.value.toLowerCase().trim() })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-semibold text-slate-600">Admin Password</label>
+                      <span className="text-2xs text-slate-400">Leave blank to keep unchanged</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showEditAdminPassword ? 'text' : 'password'}
+                        className="input font-mono pr-9"
+                        placeholder="Enter new password or view/edit current"
+                        value={editForm.admin_password}
+                        onChange={e => setEditForm({ ...editForm, admin_password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditAdminPassword(!showEditAdminPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                        title={showEditAdminPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showEditAdminPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="modal-foot flex justify-end gap-2">
