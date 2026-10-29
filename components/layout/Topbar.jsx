@@ -29,7 +29,7 @@ const meta = {
 export default function Topbar({ onToggleMenu }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role, effectiveRole, activeBranch, switchPortalView } = useAuth();
+  const { role, effectiveRole, activeBranch, switchPortalView, companyBranding } = useAuth();
   const currentRole = effectiveRole || role;
   const isSuperAdmin = role === 'super_admin';
 

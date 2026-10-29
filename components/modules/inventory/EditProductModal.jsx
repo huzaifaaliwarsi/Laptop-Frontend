@@ -36,8 +36,8 @@ export default function EditProductModal({
   });
 
   const [formData, setFormData] = useState({
-    category: 'Laptop',
-    categoryName: 'Laptop',
+    category: '',
+    categoryName: '',
     brand: '',
     model: '',
     condition: 'Used',
@@ -79,8 +79,8 @@ export default function EditProductModal({
 
       if (product) {
         setFormData({
-          category: product.category || 'Laptop',
-          categoryName: product.category || 'Laptop',
+          category: product.category || product.categoryName || '',
+          categoryName: product.category || product.categoryName || '',
           brand: product.brand || '',
           model: product.model || '',
           condition: product.condition || 'Used',

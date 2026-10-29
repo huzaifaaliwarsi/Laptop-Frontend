@@ -31,7 +31,7 @@ export default function ExchangeModal({
 
   // In Product (Customer -> Shop)
   const [inProductData, setInProductData] = useState({
-    category: 'Laptop',
+    category: '',
     brand: '',
     model: '',
     screenSize: '',
@@ -83,7 +83,7 @@ export default function ExchangeModal({
       setReferenceId('');
       setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
       setInProductData({
-        category: 'Laptop',
+        category: '',
         brand: '',
         model: '',
         screenSize: '',
@@ -135,8 +135,8 @@ export default function ExchangeModal({
 
   const executeExchange = async () => {
     const inProductObj = {
-      category: inProductData.category || 'Laptop',
-      categoryName: inProductData.category || 'Laptop',
+      category: inProductData.category || '',
+      categoryName: inProductData.category || '',
       brand: inProductData.brand.trim(),
       model: inProductData.model.trim(),
       screenSize: inProductData.screenSize,

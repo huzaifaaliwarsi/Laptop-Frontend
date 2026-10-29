@@ -504,9 +504,15 @@ export default function SuperAdminPage() {
     e.preventDefault();
     if (!editModalBranch) return;
 
+    const bId = editModalBranch.branchId || editModalBranch.id;
+    if (!bId) {
+      toast('Invalid branch ID', 'error');
+      return;
+    }
+
     setSavingEdit(true);
     try {
-      const res = await api.put(`/super-admin/branches/${editModalBranch.branchId}`, editForm);
+      const res = await api.put(`/super-admin/branches/${bId}`, editForm);
       if (res.success) {
         toast('Branch profile updated successfully');
         setEditModalBranch(null);
@@ -1440,9 +1446,17 @@ export default function SuperAdminPage() {
                   onClick={() => {
                     const b = viewDetailsBranch;
                     setViewDetailsBranch(null);
-                    setEditModalBranch(b);
+                    const bId = b.branchId || b.id;
+                    const bCode = b.branchCode || b.branch_code || `BR-0${bId}`;
+                    const bName = b.branch_name || b.branchName || '';
+                    setEditModalBranch({
+                      ...b,
+                      branchId: bId,
+                      branchCode: bCode,
+                      branchName: bName
+                    });
                     setEditForm({
-                      branch_name: b.branch_name || b.branchName || '',
+                      branch_name: bName,
                       phone: b.phone || '',
                       email: b.email || '',
                       city: b.city || '',
@@ -1476,7 +1490,7 @@ export default function SuperAdminPage() {
         <div className="modal-backdrop open">
           <div className="modal" style={{ maxWidth: 460 }}>
             <div className="modal-head">
-              <h3 className="m-0 text-sm font-bold">Edit Branch ({editModalBranch.branchCode})</h3>
+              <h3 className="m-0 text-sm font-bold">Edit Branch ({editModalBranch.branchCode || editModalBranch.branch_code || `BR-0${editModalBranch.branchId || editModalBranch.id}`})</h3>
               <button
                 type="button"
                 onClick={() => setEditModalBranch(null)}

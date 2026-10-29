@@ -34,7 +34,7 @@ export default function AddProductModal({
   });
 
   const [formData, setFormData] = useState({
-    category: 'Laptop',
+    category: '',
     brand: '',
     model: '',
     screenSize: '',
@@ -90,7 +90,7 @@ export default function AddProductModal({
       setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
       setFormData({
-        category: 'Laptop',
+        category: '',
         brand: '',
         model: '',
         screenSize: '',
@@ -215,8 +215,8 @@ export default function AddProductModal({
       const effectiveModel = formData.model?.trim() || formData.productName?.trim() || formData.customFields?.Model || formData.customFields?.['Model / Product Name'] || firstCustomVal || formData.category || 'Item';
 
       const payload = {
-        category: formData.category || formData.categoryName || 'Laptop',
-        categoryName: formData.category || formData.categoryName || 'Laptop',
+        category: formData.category || formData.categoryName || '',
+        categoryName: formData.category || formData.categoryName || '',
         brand: effectiveBrand,
         model: effectiveModel,
         screenSize: formData.screenSize || null,

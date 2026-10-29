@@ -105,25 +105,12 @@ export default function CommonProductFields({
     ? currentCatObj.custom_fields
     : null;
 
-  // Fallback defaults if category does not have custom_fields in DB
-  const showComputer = ['Laptop', 'PC', 'All-in-One'].includes(cat);
-  const showScreen = cat === 'LCD / Screen';
-  const showAccessory = ['Accessories', 'Accessory'].includes(cat);
-
   let activeFields = [];
   if (definedCustomFields) {
     activeFields = definedCustomFields;
-  } else if (showComputer) {
-    activeFields = ['Screen Size', 'Processor', 'RAM', 'ROM / SSD', 'Hard Drive', 'Graphics Card'];
-  } else if (showScreen) {
-    activeFields = ['Screen Size / Size in Inches'];
-  } else if (showAccessory) {
-    activeFields = ['Accessory Category', 'Accessory Description'];
   }
 
-  const defaultCats = ['Laptop', 'LCD / Screen', 'Accessories', 'PC', 'All-in-One', 'Mobile'];
   const allCatNames = Array.from(new Set([
-    ...defaultCats,
     ...localCategories.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean),
     ...categories.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean),
     cat

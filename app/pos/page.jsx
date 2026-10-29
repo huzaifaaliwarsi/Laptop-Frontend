@@ -46,15 +46,11 @@ export default function PosPage() {
       api.get('/pos/held-bills')
     ]).then(([pRes, cRes, hRes]) => {
       if (pRes.success) setProducts(pRes.data || []);
-      if (cRes.success) {
         const prodCats = cRes.data.productCategories || [];
-        const defaultCats = ['Laptop', 'LCD / Screen', 'Accessories', 'PC', 'All-in-One'];
-        const mergedCats = Array.from(new Set([
-          ...defaultCats,
-          ...prodCats.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean)
-        ]));
+        const mergedCats = Array.from(new Set(
+          prodCats.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean)
+        ));
         setCategories(mergedCats);
-      }
       if (hRes.success) setHeldBills(hRes.data || []);
     }).catch(console.error)
       .finally(() => setLoading(false));

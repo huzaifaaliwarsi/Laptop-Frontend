@@ -374,7 +374,7 @@ export default function CreateRepairJobModal({
         contact: contact.trim(),
         categoryId: parseInt(categoryId, 10),
         categoryName: categoryName.trim() || productType,
-        productType: categoryName.trim() || productType || 'Laptop',
+        productType: categoryName.trim() || productType || '',
         brand: brand.trim(),
         model: model.trim(),
         serial: serial.trim(),

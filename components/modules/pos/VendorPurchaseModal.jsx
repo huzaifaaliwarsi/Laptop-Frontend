@@ -40,7 +40,7 @@ export default function VendorPurchaseModal({
   });
 
   const [productData, setProductData] = useState({
-    category: 'Laptop',
+    category: '',
     brand: '',
     model: '',
     screenSize: '',
@@ -87,7 +87,7 @@ export default function VendorPurchaseModal({
       setDate(new Date().toISOString().split('T')[0]);
       setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
       setProductData({
-        category: 'Laptop',
+        category: '',
         brand: '',
         model: '',
         screenSize: '',
@@ -132,8 +132,8 @@ export default function VendorPurchaseModal({
 
   const executeVendorPurchase = async () => {
     const productObj = {
-      category: productData.category || 'Laptop',
-      categoryName: productData.category || 'Laptop',
+      category: productData.category || '',
+      categoryName: productData.category || '',
       brand: productData.brand.trim(),
       model: productData.model.trim(),
       screenSize: productData.screenSize,

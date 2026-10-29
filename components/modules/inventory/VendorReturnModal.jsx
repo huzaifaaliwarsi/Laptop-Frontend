@@ -50,7 +50,7 @@ export default function VendorReturnModal({
 
   // 2. Different product — brand new incoming product entry from vendor
   const [newProdData, setNewProdData] = useState({
-    category: 'Laptop',
+    category: '',
     brand: '',
     model: '',
     quantity: 1,
@@ -130,7 +130,7 @@ export default function VendorReturnModal({
       setDiffQty(1);
       setDiffPaymentMethod('Cash');
       setNewProdData({
-        category: product.category || product.categoryName || 'Laptop',
+        category: product.category || product.categoryName || '',
         brand: '',
         model: '',
         quantity: 1,
@@ -730,12 +730,7 @@ export default function VendorReturnModal({
                                   <option key={i} value={c.name || c}>{c.name || c}</option>
                                 ))
                               ) : (
-                                <>
-                                  <option value="Laptop">Laptop</option>
-                                  <option value="LCD / Screen">LCD / Screen</option>
-                                  <option value="Mobile">Mobile</option>
-                                  <option value="Accessories">Accessories</option>
-                                </>
+                                <option value="">-- No Categories Available --</option>
                               )}
                             </select>
                           </div>
