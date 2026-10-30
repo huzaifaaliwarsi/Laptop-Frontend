@@ -1,7 +1,18 @@
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // When running in production on saadcomm.isywarecloud.com or any isywarecloud domain
+    if (host === 'saadcomm.isywarecloud.com' || host.endsWith('isywarecloud.com')) {
+      return 'https://api.saadcomm.isywarecloud.com/api';
+    }
+    if (window.location.protocol === 'https:' && (process.env.NEXT_PUBLIC_API_URL || '').includes('localhost')) {
+      return `https://api.${host.replace(/^www\./, '')}/api`;
+    }
+  }
+
   let envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!envUrl) {
-    return typeof window !== 'undefined' ? '/api' : 'http://localhost:5000/api';
+    return typeof window !== 'undefined' ? '/api' : 'http://localhost:5001/api';
   }
   
   envUrl = envUrl.trim().replace(/\/+$/, '');
@@ -56,9 +67,10 @@ async function apiRequest(endpoint, options = {}) {
     ? `${cleanEndpoint}${cleanEndpoint.includes('?') ? '&' : '?'}_t=${Date.now()}`
     : cleanEndpoint;
 
-  const url = BASE_URL.endsWith('/api') && endpointWithCache.startsWith('/api/')
-    ? `${BASE_URL.slice(0, -4)}${endpointWithCache}`
-    : `${BASE_URL}${endpointWithCache}`;
+  const activeBaseUrl = getBaseUrl();
+  const url = activeBaseUrl.endsWith('/api') && endpointWithCache.startsWith('/api/')
+    ? `${activeBaseUrl.slice(0, -4)}${endpointWithCache}`
+    : `${activeBaseUrl}${endpointWithCache}`;
 
   const method = (options.method || 'GET').toUpperCase();
   const isGet = method === 'GET';
@@ -103,8 +115,10 @@ async function apiRequest(endpoint, options = {}) {
     }
   }
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {})
   };
 
@@ -114,8 +128,8 @@ async function apiRequest(endpoint, options = {}) {
     if (token && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const branchId = localStorage.getItem('activeBranchId');
-    if (branchId && !headers['X-Branch-Id']) {
+    const branchId = localStorage.getItem('activeBranchId') || '1';
+    if (!headers['X-Branch-Id'] && !headers['x-branch-id']) {
       headers['X-Branch-Id'] = String(branchId);
     }
   }

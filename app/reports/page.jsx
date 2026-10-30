@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Wallet, Landmark, TrendingUp, TrendingDown } from 'lucide-react';
-import api from '../../services/api';
+import api, { getBaseUrl } from '../../services/api';
 import Icon from '../../components/common/Icon';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../context/AuthContext';
@@ -95,7 +95,7 @@ const TABS = [
 // MAIN PAGE
 // =============================================================================
 export default function ReportsPage() {
-  const { role, effectiveRole } = useAuth();
+  const { role, effectiveRole, activeBranch } = useAuth();
   const currentRole = effectiveRole || role;
   const isAdmin = currentRole === 'admin' || currentRole === 'super_admin';
 
@@ -146,64 +146,65 @@ export default function ReportsPage() {
     const q = qs ? `?${qs}` : '';
 
     try {
+      const opts = { noCache: true };
       if (activeTab === 'overview') {
         // Parallel: PnL + Cash Balance + Repairs summary
         const [plRes, cashRes, repRes, invRes] = await Promise.all([
-          isAdmin ? api.get(`/reports/profit-loss${q}`) : Promise.resolve(null),
-          isAdmin ? api.get(`/reports/cash-balance${q}`) : Promise.resolve(null),
-          api.get(`/reports/repairs${q}`),
-          isAdmin ? api.get(`/reports/inventory${q}`) : Promise.resolve(null),
+          isAdmin ? api.get(`/reports/profit-loss${q}`, opts) : Promise.resolve(null),
+          isAdmin ? api.get(`/reports/cash-balance${q}`, opts) : Promise.resolve(null),
+          api.get(`/reports/repairs${q}`, opts),
+          isAdmin ? api.get(`/reports/inventory${q}`, opts) : Promise.resolve(null),
         ]);
         setOverview({ pl: plRes?.data, cash: cashRes?.data, rep: repRes?.summary, inv: invRes?.summary });
 
       } else if (activeTab === 'profit-loss') {
-        const r = await api.get(`/reports/profit-loss${q}`);
+        const r = await api.get(`/reports/profit-loss${q}`, opts);
         if (r.success) setPnlData(r.data);
 
       } else if (activeTab === 'cash-online') {
-        const r = await api.get(`/reports/cash-balance${q}`);
+        const r = await api.get(`/reports/cash-balance${q}`, opts);
         if (r.success) setCashData(r.data);
 
       } else if (activeTab === 'accounts') {
         // Show from accounts table directly
-        const r = await api.get(`/accounts${q}`);
+        const r = await api.get(`/accounts${q}`, opts);
         if (r.success) { setTableData(r.data || []); }
 
       } else if (activeTab === 'voids-returns') {
-        const r = await api.get(`/reports/returns${q}`);
+        const r = await api.get(`/reports/returns${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'sales') {
-        const r = await api.get(`/reports/sales${q}`);
+        const r = await api.get(`/reports/sales${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'purchases') {
-        const r = await api.get(`/reports/purchases${q}`);
+        const r = await api.get(`/reports/purchases${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'vendor-returns') {
-        const r = await api.get(`/reports/vendor-returns${q}`);
+        const r = await api.get(`/reports/vendor-returns${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'inventory') {
-        const r = await api.get(`/reports/inventory${q}`);
+        const r = await api.get(`/reports/inventory${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'spare-parts') {
-        const r = await api.get(`/reports/spare-parts${q}`);
+        const r = await api.get(`/reports/spare-parts${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'repairs') {
-        const r = await api.get(`/reports/repairs${q}`);
+        const r = await api.get(`/reports/repairs${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
 
       } else if (activeTab === 'expenses') {
-        const r = await api.get(`/reports/expenses${q}`);
+        const r = await api.get(`/reports/expenses${q}`, opts);
         if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [activeTab, buildQS, isAdmin]);
+  }, [activeTab, buildQS, isAdmin, activeBranch?.id]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
 
@@ -221,11 +222,11 @@ export default function ReportsPage() {
     const csvType = map[activeTab];
     if (!csvType) return;
     const qs = buildQS();
-    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
-    const url = `${baseUrl}/api/reports/csv/${csvType}${qs ? '?' + qs : ''}`;
+    const url = `${getBaseUrl()}/reports/csv/${csvType}${qs ? '?' + qs : ''}`;
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(r => r.blob()).then(blob => {
+    const branchId = localStorage.getItem('activeBranchId') || '1';
+    fetch(url, { credentials: 'include', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Branch-Id': branchId } })
+      .then(r => { if (!r.ok) throw new Error('Report export failed'); return r.blob(); }).then(blob => {
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
         a.download = `${csvType}-report.csv`; a.click();
       }).catch(console.error);

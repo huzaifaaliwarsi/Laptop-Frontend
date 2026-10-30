@@ -28,7 +28,7 @@ export default function WhatsappPage() {
   const messagesEndRef = useRef(null);
 
   const loadConversations = () => {
-    api.get('/whatsapp/conversations')
+    api.get('/whatsapp/conversations', { noCache: true })
       .then(res => {
         if (res.success) {
           const list = res.data || [];

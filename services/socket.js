@@ -3,6 +3,16 @@ import { io } from 'socket.io-client';
 let socket = null;
 
 const resolveSocketUrl = () => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'saadcomm.isywarecloud.com' || host.endsWith('isywarecloud.com')) {
+      return 'https://api.saadcomm.isywarecloud.com';
+    }
+    if (window.location.protocol === 'https:' && (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || '').includes('localhost')) {
+      return `https://api.${host.replace(/^www\./, '')}`;
+    }
+  }
+
   let url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL;
   if (url) {
     url = url.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '');
@@ -14,11 +24,11 @@ const resolveSocketUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:5000';
+      return 'http://localhost:5001';
     }
     return window.location.origin;
   }
-  return 'http://localhost:5000';
+  return 'http://localhost:5001';
 };
 
 export const getSocket = () => {

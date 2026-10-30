@@ -94,7 +94,7 @@ export default function InventoryPage() {
 
     return Promise.all([
       api.get(url),
-      api.get('/categories')
+      api.get('/categories', { noCache: force })
     ]).then(([pRes, cRes]) => {
       if (pRes.success) setProducts(pRes.data || []);
       if (cRes.success) setCategories(cRes.data.productCategories || []);
