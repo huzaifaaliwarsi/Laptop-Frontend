@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Printer } from 'lucide-react';
 import Modal from '../../common/Modal';
+import ProductSearchSelect from '../../common/ProductSearchSelect';
 import CommonProductFields from '../../common/CommonProductFields';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
@@ -103,12 +104,19 @@ export default function ExchangeModal({
     }
   }, [isOpen]);
 
-  const handleOutProductSelect = (e) => {
-    const id = e.target.value;
+  const handleOutProductSelect = (productOrEvent) => {
+    if (!productOrEvent) {
+      setOutProductId('');
+      setOutSaleValue('');
+      return;
+    }
+    const id = productOrEvent.target ? productOrEvent.target.value : (productOrEvent.id || productOrEvent);
     setOutProductId(id);
-    const p = productsList.find(x => x.id === id);
+    const p = typeof productOrEvent === 'object' && productOrEvent.id ? productOrEvent : productsList.find(x => x.id === id);
     if (p) {
       setOutSaleValue(p.expectedSalePrice || p.costPrice || '');
+    } else {
+      setOutSaleValue('');
     }
   };
 
@@ -316,19 +324,12 @@ export default function ExchangeModal({
             <div className="form-grid">
               <div className="field span-8">
                 <label>Select In-Stock Product *</label>
-                <select
-                  className="select"
-                  value={outProductId}
-                  onChange={handleOutProductSelect}
-                  required
-                >
-                  <option value="">Select product to give customer</option>
-                  {productsList.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} — {p.brand} {p.model || p.productName} ({p.condition}) [Stock: {p.currentStock}] — PKR {p.expectedSalePrice}
-                    </option>
-                  ))}
-                </select>
+                <ProductSearchSelect
+                  products={productsList}
+                  selectedProductId={outProductId}
+                  onSelect={handleOutProductSelect}
+                  placeholder="Search code, brand, model, barcode..."
+                />
               </div>
               <div className="field span-4">
                 <label>Agreed Sale Value PKR *</label>

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Save, Printer } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
+import ProductSearchSelect from '../../common/ProductSearchSelect';
+import { formatProductTitle } from '../../../utils/formatters';
 import api from '../../../services/api';
 
 function money(v) {
@@ -79,10 +81,23 @@ export default function SalesInvoiceModal({
     }
   }, [cartItems, isManualPaid]);
 
-  const handleProductSelect = (id) => {
+  const handleProductSelect = (productOrId) => {
+    if (!productOrId) {
+      setSelectedProductId('');
+      setSelectedQty(1);
+      setCustomSalePrice('');
+      return;
+    }
+    const id = typeof productOrId === 'object' ? productOrId.id : productOrId;
+    const prod = typeof productOrId === 'object' ? productOrId : productsList.find(p => p.id === id);
     setSelectedProductId(id);
     setSelectedQty(1);
-    setCustomSalePrice('');
+    if (prod) {
+      const expPrice = prod.expectedSalePrice !== undefined && prod.expectedSalePrice !== null ? prod.expectedSalePrice : (prod.costPrice || 0);
+      setCustomSalePrice(expPrice ? String(expPrice) : '');
+    } else {
+      setCustomSalePrice('');
+    }
   };
 
   const handleAddProduct = () => {
@@ -143,7 +158,7 @@ export default function SalesInvoiceModal({
       return [...prev, {
         productId: prod.id,
         code: prod.code,
-        name: `${prod.brand} ${prod.model || prod.productName || ''}`.trim(),
+        name: formatProductTitle(prod),
         description: prod.specifications || '',
         quantity: qty,
         costPrice: parseFloat(prod.costPrice || 0),
@@ -320,19 +335,12 @@ export default function SalesInvoiceModal({
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--navy)', marginBottom: 4, display: 'block' }}>
                   Product *
                 </label>
-                <select
-                  className="select"
-                  style={{ width: '100%', textOverflow: 'ellipsis' }}
-                  value={selectedProductId}
-                  onChange={(e) => handleProductSelect(e.target.value)}
-                >
-                  <option value="">Select product to add...</option>
-                  {productsList.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} — {p.brand} {p.model || p.productName} ({p.condition}) [Stock: {p.currentStock}] — PKR {Number(p.expectedSalePrice || p.costPrice || 0).toLocaleString()}
-                    </option>
-                  ))}
-                </select>
+                <ProductSearchSelect
+                  products={productsList}
+                  selectedProductId={selectedProductId}
+                  onSelect={handleProductSelect}
+                  placeholder="Search code, brand, model, barcode..."
+                />
               </div>
 
               <div className="field" style={{ width: 85, flex: '0 0 85px', margin: 0 }}>

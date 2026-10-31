@@ -461,7 +461,18 @@ export default function InventoryPage() {
                         <td><strong>{p.code}</strong></td>
                         <td>{p.categoryName}</td>
                         <td>
-                          <div><strong>{p.brand}</strong> {p.model || p.productName}</div>
+                          <div>
+                            {p.brand && (p.categoryName || p.category) && p.brand.trim().toLowerCase() === (p.categoryName || p.category).trim().toLowerCase() ? (
+                              <strong>{p.model || p.productName || p.brand}</strong>
+                            ) : (
+                              <>
+                                <strong>{p.brand}</strong>{' '}
+                                {(p.model || p.productName || '').toLowerCase().startsWith((p.brand || '').toLowerCase())
+                                  ? (p.model || p.productName).slice(p.brand.length).trim()
+                                  : (p.model || p.productName)}
+                              </>
+                            )}
+                          </div>
                           {(p.vendorName || p.sourceName) && (p.vendorName !== 'Manual Entry' && p.sourceName !== 'Manual Entry') && (
                             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                               <span title="Supplier / Vendor" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>

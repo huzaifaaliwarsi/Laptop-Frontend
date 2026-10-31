@@ -11,6 +11,7 @@ import ExchangeModal from '../../components/modules/pos/ExchangeModal';
 import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
 import { POSProductGridSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
+import { formatProductTitle } from '../../utils/formatters';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -200,7 +201,7 @@ export default function PosPage() {
                   >
                     <span className="item-stock">{p.currentStock} in stock</span>
                     <span className="item-code">{p.code}</span>
-                    <div className="item-name">{p.brand} {p.model || p.productName}</div>
+                    <div className="item-name">{formatProductTitle(p)}</div>
                     <div className="item-meta">{p.specifications || p.condition || 'Product'}</div>
                     <div className="item-price">{money(p.expectedSalePrice || p.costPrice)}</div>
                   </div>

@@ -148,3 +148,29 @@ export function notifyBalanceUpdated() {
     window.dispatchEvent(new CustomEvent('app:balance-updated'));
   }
 }
+
+/**
+ * Cleanly format product display title without duplicating category name.
+ * e.g.:
+ * - brand: "Accessories", model: "HDMI To Vga Convertor", category: "Accessories" -> "HDMI To Vga Convertor"
+ * - brand: "Dell", model: "Latitude 5400", category: "Laptop" -> "Dell Latitude 5400"
+ */
+export function formatProductTitle(p) {
+  if (!p) return '';
+  const brand = (p.brand || '').trim();
+  const model = (p.model || p.productName || '').trim();
+  const category = (p.categoryName || p.category || '').trim();
+
+  // If brand is empty or matches category name (e.g. "Accessories" or "Laptop"), don't prepend category
+  const isBrandCategory = brand && category && brand.toLowerCase() === category.toLowerCase();
+  if (!brand || isBrandCategory) {
+    return model || brand || 'Product';
+  }
+
+  // If model already starts with the brand name (e.g. brand "Dell", model "Dell Latitude 5400")
+  if (model.toLowerCase().startsWith(brand.toLowerCase())) {
+    return model;
+  }
+
+  return `${brand} ${model}`.trim();
+}
