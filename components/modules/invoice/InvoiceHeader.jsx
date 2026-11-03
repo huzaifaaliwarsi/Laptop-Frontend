@@ -17,16 +17,16 @@ export default function InvoiceHeader({
 
   return (
     <div className="std-inv-header">
-      {/* 1. Logo & Top Company Title */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
-        {companyBranding.logo_data && (
+      {/* 1. Logo (Centered on top) & Top Company Title (Underneath) */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
+        {(companyBranding.logo_data || companyBranding.logoData || companyBranding.logo) && (
           <img
-            src={companyBranding.logo_data}
+            src={companyBranding.logo_data || companyBranding.logoData || companyBranding.logo}
             alt={companyName}
-            style={{ maxHeight: 52, maxWidth: 140, objectFit: 'contain' }}
+            style={{ maxHeight: 60, maxWidth: 160, objectFit: 'contain', marginBottom: 2 }}
           />
         )}
-        <h1 className="std-company-title" style={{ margin: 0 }}>{companyName.toUpperCase()}</h1>
+        <h1 className="std-company-title" style={{ margin: 0, textAlign: 'center' }}>{companyName.toUpperCase()}</h1>
       </div>
 
       {/* 2. Top Info Row: Address on Left, NTN/STRN/POS Table on Right */}

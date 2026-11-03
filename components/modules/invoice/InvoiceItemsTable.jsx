@@ -18,20 +18,21 @@ export default function InvoiceItemsTable({
       <table className="std-items-table">
         <thead>
           <tr>
-            <th style={{ width: '5%', textAlign: 'center' }}>S. No.</th>
-            <th style={{ width: '34%' }}>Description</th>
-            <th style={{ width: '13%' }}>H S Code / Code</th>
-            <th style={{ width: '8%', textAlign: 'center' }}>Quantity</th>
+            <th style={{ width: '4%', textAlign: 'center' }}>S. No.</th>
+            <th style={{ width: '30%' }}>Description</th>
+            <th style={{ width: '13%' }}>Category</th>
+            <th style={{ width: '11%' }}>H S Code / Code</th>
+            <th style={{ width: '6%', textAlign: 'center' }}>Quantity</th>
             <th style={{ width: '10%', textAlign: 'right' }}>Rate</th>
             <th style={{ width: '10%', textAlign: 'right' }}>Amount</th>
-            <th style={{ width: '9%', textAlign: 'right' }}>Discount</th>
-            <th style={{ width: '11%', textAlign: 'right' }}>Net Amount</th>
+            <th style={{ width: '6%', textAlign: 'right' }}>Discount</th>
+            <th style={{ width: '10%', textAlign: 'right' }}>Net Amount</th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan="8" className="std-table-empty">No items on this document.</td>
+              <td colSpan="9" className="std-table-empty">No items on this document.</td>
             </tr>
           ) : (
             items.map((item, idx) => {
@@ -41,6 +42,25 @@ export default function InvoiceItemsTable({
               const disc = parseFloat(item.discount || 0);
               const netAmt = parseFloat(item.lineTotal || (grossAmt - disc));
 
+              // Resolve category cleanly with multiple fallbacks
+              const rawCat = item.category || item.categoryName || item.category_name || '';
+              let itemCategory = rawCat;
+              if (!itemCategory && item.description) {
+                if (item.description.includes('—')) {
+                  itemCategory = item.description.split('—')[0].trim();
+                } else if (item.description.includes(' - ')) {
+                  itemCategory = item.description.split(' - ')[0].trim();
+                }
+              }
+              if (!itemCategory) {
+                itemCategory = item.itemType === 'service' ? 'Service' : item.itemType === 'part' ? 'Spare Part' : '';
+              }
+
+              let cleanItemDesc = item.description || '';
+              if (itemCategory && cleanItemDesc.startsWith(itemCategory)) {
+                cleanItemDesc = cleanItemDesc.replace(new RegExp(`^${itemCategory}\\s*[-—|]\\s*`, 'i'), '').trim();
+              }
+
               subtotalGross += grossAmt;
               subtotalNet += netAmt;
 
@@ -49,8 +69,27 @@ export default function InvoiceItemsTable({
                   <td style={{ textAlign: 'center' }}>{idx + 1}</td>
                   <td>
                     <div className="std-item-name">{item.name || 'Product / Item'}</div>
-                    {item.description && item.description !== item.name && (
-                      <div className="std-item-desc">{item.description}</div>
+                    {cleanItemDesc && cleanItemDesc !== item.name && (
+                      <div className="std-item-desc">{cleanItemDesc}</div>
+                    )}
+                  </td>
+                  <td>
+                    {itemCategory ? (
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          color: '#1e293b',
+                          backgroundColor: '#f1f5f9',
+                          padding: '2px 7px',
+                          borderRadius: 4,
+                          display: 'inline-block'
+                        }}
+                      >
+                        {itemCategory}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
                     )}
                   </td>
                   <td className="font-mono text-muted">{item.hsCode || item.productCode || item.code || '—'}</td>
@@ -66,7 +105,7 @@ export default function InvoiceItemsTable({
         </tbody>
         <tfoot>
           <tr className="std-table-totals-row">
-            <td colSpan="7" style={{ textAlign: 'right', fontWeight: 'bold' }}>Totals Rs.</td>
+            <td colSpan="8" style={{ textAlign: 'right', fontWeight: 'bold' }}>Totals Rs.</td>
             <td style={{ textAlign: 'right', fontWeight: 'bold' }} className="font-mono">
               {numStr(subtotalNet || invoice.total)}
             </td>

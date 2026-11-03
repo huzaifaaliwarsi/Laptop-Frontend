@@ -6,6 +6,7 @@ import Modal from '../../common/Modal';
 import CommonProductFields from '../../common/CommonProductFields';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
 import { useToast } from '../../common/Toast';
+import CustomerSearchInput from '../../common/CustomerSearchInput';
 import api from '../../../services/api';
 
 function money(v) {
@@ -22,6 +23,7 @@ export default function CustomerPurchaseModal({
   const [categories, setCategories] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
+  const [customerId, setCustomerId] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [referenceId, setReferenceId] = useState('');
@@ -66,6 +68,7 @@ export default function CustomerPurchaseModal({
 
       setCustomerName('');
       setContact('');
+      setCustomerId(null);
       setPaid('');
       setReferenceId('');
       setDate(new Date().toISOString().split('T')[0]);
@@ -134,6 +137,7 @@ export default function CustomerPurchaseModal({
     setSubmitting(true);
     try {
       const payload = {
+        customerId: customerId || null,
         customerName: customerName.trim(),
         contact: contact.trim(),
         date,
@@ -234,13 +238,14 @@ export default function CustomerPurchaseModal({
       <form id="custPurchaseForm" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field span-4">
-            <label>Customer Name *</label>
-            <input
-              className="input"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Seller customer name"
-              required
+            <CustomerSearchInput
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              contact={contact}
+              setContact={setContact}
+              customerId={customerId}
+              setCustomerId={setCustomerId}
+              required={true}
             />
           </div>
           <div className="field span-4">

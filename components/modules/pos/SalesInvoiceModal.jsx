@@ -5,6 +5,7 @@ import { Save, Printer } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
 import ProductSearchSelect from '../../common/ProductSearchSelect';
+import CustomerSearchInput from '../../common/CustomerSearchInput';
 import { formatProductTitle } from '../../../utils/formatters';
 import api from '../../../services/api';
 
@@ -22,6 +23,7 @@ export default function SalesInvoiceModal({
   const { toast } = useToast();
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
+  const [customerId, setCustomerId] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [referenceId, setReferenceId] = useState('');
@@ -64,6 +66,7 @@ export default function SalesInvoiceModal({
       setCartItems([]);
       setCustomerName('');
       setContact('');
+      setCustomerId(null);
       setPaid('');
       setIsManualPaid(false);
       setReferenceId('');
@@ -159,6 +162,7 @@ export default function SalesInvoiceModal({
         productId: prod.id,
         code: prod.code,
         name: formatProductTitle(prod),
+        category: prod.categoryName || prod.category || 'Product',
         description: prod.specifications || '',
         quantity: qty,
         costPrice: parseFloat(prod.costPrice || 0),
@@ -218,6 +222,7 @@ export default function SalesInvoiceModal({
     setSubmitting(true);
     try {
       const payload = {
+        customerId: customerId || null,
         customerName: customerName.trim(),
         contact: contact.trim(),
         date,
@@ -238,6 +243,9 @@ export default function SalesInvoiceModal({
       const res = await api.post('/pos/sale', payload);
       if (res.success) {
         const inv = res.data?.invoice || {};
+        if (!inv.items && res.data?.items) {
+          inv.items = res.data.items;
+        }
         const invNo = inv.invoice_no || inv.invoiceNo || inv.id || '';
         toast(`Sales Invoice ${invNo} saved successfully!`);
         onClose();
@@ -291,13 +299,14 @@ export default function SalesInvoiceModal({
       <form id="salesInvoiceForm" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field span-4">
-            <label>Customer Name *</label>
-            <input
-              className="input"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Walk-in or Customer Name"
-              required
+            <CustomerSearchInput
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              contact={contact}
+              setContact={setContact}
+              customerId={customerId}
+              setCustomerId={setCustomerId}
+              required={true}
             />
           </div>
           <div className="field span-4">
@@ -398,6 +407,30 @@ export default function SalesInvoiceModal({
               </div>
             </div>
 
+            {selectedProduct && (
+              <div style={{
+                marginTop: 8,
+                padding: '6px 12px',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: 6,
+                display: 'flex',
+                gap: 14,
+                alignItems: 'center',
+                fontSize: 11,
+                color: '#1e40af',
+                flexWrap: 'wrap'
+              }}>
+                <span><strong>Category:</strong> {selectedProduct.categoryName || selectedProduct.category || 'Product'}</span>
+                <span><strong>Item:</strong> {selectedProduct.brand} {selectedProduct.model || selectedProduct.productName || ''}</span>
+                {selectedProduct.specifications && (
+                  <span><strong>Specs:</strong> {selectedProduct.specifications}</span>
+                )}
+                <span><strong>Stock:</strong> <strong style={{ color: '#059669' }}>{selectedProduct.currentStock} in stock</strong></span>
+                <span><strong>Barcode / Code:</strong> <code>{selectedProduct.barcode || selectedProduct.code}</code></span>
+              </div>
+            )}
+
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #dce6f2' }}>
               <div className="form-grid">
                 <div className="field span-6">
@@ -445,8 +478,15 @@ export default function SalesInvoiceModal({
                     cartItems.map((item, idx) => (
                       <tr key={idx}>
                         <td>
-                          <strong>{item.code ? `[${item.code}] ` : ''}{item.name}</strong>
-                          {item.description && <div style={{ fontSize: 9.5, color: 'var(--muted)' }}>{item.description}</div>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <strong>{item.code ? `[${item.code}] ` : ''}{item.name}</strong>
+                            {item.category && (
+                              <span style={{ fontSize: 9.5, background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
+                                {item.category}
+                              </span>
+                            )}
+                          </div>
+                          {item.description && <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{item.description}</div>}
                         </td>
                         <td>{item.quantity}</td>
                         <td>{money(item.salePrice)}</td>

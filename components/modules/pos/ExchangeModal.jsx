@@ -6,6 +6,7 @@ import Modal from '../../common/Modal';
 import ProductSearchSelect from '../../common/ProductSearchSelect';
 import CommonProductFields from '../../common/CommonProductFields';
 import InsufficientBalanceConfirmModal from '../../common/InsufficientBalanceConfirmModal';
+import CustomerSearchInput from '../../common/CustomerSearchInput';
 import { useToast } from '../../common/Toast';
 import api from '../../../services/api';
 
@@ -24,6 +25,7 @@ export default function ExchangeModal({
   const [productsList, setProductsList] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
+  const [customerId, setCustomerId] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Out Product (Shop -> Customer)
@@ -76,6 +78,7 @@ export default function ExchangeModal({
 
       setCustomerName('');
       setContact('');
+      setCustomerId(null);
       setDate(new Date().toISOString().split('T')[0]);
       setOutProductId('');
       setOutSaleValue('');
@@ -174,6 +177,7 @@ export default function ExchangeModal({
     setSubmitting(true);
     try {
       const payload = {
+        customerId: customerId || null,
         customerName: customerName.trim(),
         contact: contact.trim(),
         date,
@@ -287,13 +291,14 @@ export default function ExchangeModal({
       <form id="exchangeForm" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field span-4">
-            <label>Customer Name *</label>
-            <input
-              className="input"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer Name"
-              required
+            <CustomerSearchInput
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              contact={contact}
+              setContact={setContact}
+              customerId={customerId}
+              setCustomerId={setCustomerId}
+              required={true}
             />
           </div>
           <div className="field span-4">

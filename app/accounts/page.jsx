@@ -5,6 +5,7 @@ import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
+import VendorGroupPaymentModal from '../../components/modules/accounts/VendorGroupPaymentModal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 
 function money(v) {
@@ -23,6 +24,7 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
 
   const [paymentAccount, setPaymentAccount] = useState(null);
+  const [isVendorGroupPaymentOpen, setIsVendorGroupPaymentOpen] = useState(false);
 
   const loadAccounts = () => {
     setLoading(true);
@@ -93,6 +95,16 @@ export default function AccountsPage() {
               <div style={{ padding: '6px 12px', background: '#eff6ff', borderRadius: 8, fontWeight: 800, color: 'var(--navy)' }}>
                 Total: {money(totalOutstanding)}
               </div>
+              {activeTab === 'Vendor Payable' && (
+                <button
+                  type="button"
+                  className="btn primary"
+                  style={{ background: '#059669', borderColor: '#059669', fontWeight: 600 }}
+                  onClick={() => setIsVendorGroupPaymentOpen(true)}
+                >
+                  <Icon name="creditCard" /> + Group Vendor Payment
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -169,6 +181,12 @@ export default function AccountsPage() {
         isOpen={!!paymentAccount}
         onClose={() => setPaymentAccount(null)}
         account={paymentAccount}
+        onSuccess={() => loadAccounts()}
+      />
+
+      <VendorGroupPaymentModal
+        isOpen={isVendorGroupPaymentOpen}
+        onClose={() => setIsVendorGroupPaymentOpen(false)}
         onSuccess={() => loadAccounts()}
       />
     </>

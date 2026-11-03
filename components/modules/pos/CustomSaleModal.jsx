@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Printer, Zap } from 'lucide-react';
 import Modal from '../../common/Modal';
 import { useToast } from '../../common/Toast';
+import CustomerSearchInput from '../../common/CustomerSearchInput';
 import api from '../../../services/api';
 
 function money(v) {
@@ -19,6 +20,7 @@ export default function CustomSaleModal({
   const { toast } = useToast();
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
+  const [customerId, setCustomerId] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [referenceId, setReferenceId] = useState('');
@@ -49,6 +51,7 @@ export default function CustomSaleModal({
       setCartItems([]);
       setCustomerName('');
       setContact('');
+      setCustomerId(null);
       setPaid('');
       setIsManualPaid(false);
       setReferenceId('');
@@ -154,6 +157,7 @@ export default function CustomSaleModal({
     setSubmitting(true);
     try {
       const payload = {
+        customerId: customerId || null,
         customerName: customerName.trim(),
         contact: contact.trim(),
         date,
@@ -176,6 +180,9 @@ export default function CustomSaleModal({
       const res = await api.post('/pos/sale', payload);
       if (res.success) {
         const inv = res.data?.invoice || {};
+        if (!inv.items && res.data?.items) {
+          inv.items = res.data.items;
+        }
         const invNo = inv.invoice_no || inv.invoiceNo || inv.id || '';
         toast(`Custom Sale Invoice ${invNo} saved successfully!`);
         onClose();
@@ -231,13 +238,14 @@ export default function CustomSaleModal({
       <form id="customSaleForm" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field span-4">
-            <label>Customer Name *</label>
-            <input
-              className="input"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Walk-in or Customer Name"
-              required
+            <CustomerSearchInput
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              contact={contact}
+              setContact={setContact}
+              customerId={customerId}
+              setCustomerId={setCustomerId}
+              required={true}
             />
           </div>
           <div className="field span-4">

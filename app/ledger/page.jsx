@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import RecordPaymentModal from '../../components/modules/accounts/RecordPaymentModal';
+import VendorGroupPaymentModal from '../../components/modules/accounts/VendorGroupPaymentModal';
 import { Skeleton, TableRowSkeleton } from '../../components/common/Skeleton';
 import ProgressLoader from '../../components/common/ProgressLoader';
 
@@ -31,6 +32,7 @@ export default function LedgerPage() {
   const [loading, setLoading] = useState(false);
 
   const [paymentAccount, setPaymentAccount] = useState(null);
+  const [isGroupPaymentOpen, setIsGroupPaymentOpen] = useState(false);
   const [expandedBills, setExpandedBills] = useState({});
 
   // Load parties list
@@ -51,7 +53,7 @@ export default function LedgerPage() {
   const loadLedger = () => {
     if (!selectedPartyId) return;
     setLoading(true);
-    api.get(`/ledger/party/${partyType}/${selectedPartyId}`)
+    api.get(`/ledger/party/${partyType}/${selectedPartyId}?_t=${Date.now()}`)
       .then(res => {
         if (res.success) setLedgerData(res.data);
       })
@@ -265,49 +267,93 @@ export default function LedgerPage() {
             </div>
           </div>
 
-          {/* 3. Centered View Switcher Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 22, marginBottom: 14 }}>
-            <button
-              type="button"
-              onClick={() => setViewMode('bills')}
-              style={{
-                padding: '9px 28px',
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                border: viewMode === 'bills' ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                backgroundColor: viewMode === 'bills' ? '#2563eb' : '#ffffff',
-                color: viewMode === 'bills' ? '#ffffff' : '#334155',
-                boxShadow: viewMode === 'bills' ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none'
-              }}
-            >
-              Grouped Bills
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('log')}
-              style={{
-                padding: '9px 28px',
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                border: viewMode === 'log' ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                backgroundColor: viewMode === 'log' ? '#2563eb' : '#ffffff',
-                color: viewMode === 'log' ? '#ffffff' : '#334155',
-                boxShadow: viewMode === 'log' ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none'
-              }}
-            >
-              Transaction Log
-            </button>
+          {/* 3. View Switcher & Action Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 22, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('bills')}
+                style={{
+                  padding: '9px 28px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  border: viewMode === 'bills' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                  backgroundColor: viewMode === 'bills' ? '#2563eb' : '#ffffff',
+                  color: viewMode === 'bills' ? '#ffffff' : '#334155',
+                  boxShadow: viewMode === 'bills' ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none'
+                }}
+              >
+                Grouped Bills
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('log')}
+                style={{
+                  padding: '9px 28px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  border: viewMode === 'log' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                  backgroundColor: viewMode === 'log' ? '#2563eb' : '#ffffff',
+                  color: viewMode === 'log' ? '#ffffff' : '#334155',
+                  boxShadow: viewMode === 'log' ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none'
+                }}
+              >
+                Transaction Log
+              </button>
+            </div>
+
+            {isVendor && parseFloat(summary.openPayable || 0) > 0 && (
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#059669', color: '#fff', borderColor: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                onClick={() => setIsGroupPaymentOpen(true)}
+              >
+                <Icon name="creditCard" /> + Group Payment
+              </button>
+            )}
           </div>
 
           {/* View Mode 1: Grouped Bills */}
           {viewMode === 'bills' && (
             <div className="ledger-bills" style={{ padding: 0, marginTop: 10 }}>
+              {isVendor && parseFloat(summary.openPayable || 0) > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: 10,
+                    padding: '12px 16px',
+                    marginBottom: 14
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', textTransform: 'uppercase', display: 'block' }}>
+                      Unpaid Vendor Purchase Bills
+                    </span>
+                    <strong style={{ fontSize: 14, color: '#065f46' }}>
+                      Total Outstanding: {money(summary.openPayable)}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ background: '#059669', color: '#fff', borderColor: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => setIsGroupPaymentOpen(true)}
+                  >
+                    <Icon name="creditCard" /> + Group Payment
+                  </button>
+                </div>
+              )}
               {groupedBills.length > 0 ? (
                 groupedBills.map((bill) => {
                   const isOpen = !!expandedBills[bill.id];
@@ -494,6 +540,13 @@ export default function LedgerPage() {
         isOpen={!!paymentAccount}
         onClose={() => setPaymentAccount(null)}
         account={paymentAccount}
+        onSuccess={() => loadLedger()}
+      />
+
+      <VendorGroupPaymentModal
+        isOpen={isGroupPaymentOpen}
+        vendor={isVendor ? party : null}
+        onClose={() => setIsGroupPaymentOpen(false)}
         onSuccess={() => loadLedger()}
       />
     </>

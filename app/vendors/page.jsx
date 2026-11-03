@@ -7,6 +7,7 @@ import Icon from '../../components/common/Icon';
 import Modal from '../../components/common/Modal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
+import VendorGroupPaymentModal from '../../components/modules/accounts/VendorGroupPaymentModal';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -27,6 +28,10 @@ export default function VendorsPage() {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Group Payment Modal
+  const [isGroupPaymentOpen, setIsGroupPaymentOpen] = useState(false);
+  const [groupPaymentVendor, setGroupPaymentVendor] = useState(null);
 
   const loadVendors = () => {
     setLoading(true);
@@ -114,7 +119,7 @@ export default function VendorsPage() {
     <>
       <div className="panel" style={{ marginTop: 0 }}>
         <div className="panel-head">
-          <div className="toolbar" style={{ width: '100%', justifyContent: 'space-between' }}>
+          <div className="toolbar" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <input
               className="input search"
               style={{ maxWidth: 320 }}
@@ -122,9 +127,27 @@ export default function VendorsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <button type="button" className="btn primary" onClick={handleOpenAdd}>
-              <Icon name="plus" /> + Add New Vendor
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#059669', color: '#fff', borderColor: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                onClick={() => {
+                  setGroupPaymentVendor(null);
+                  setIsGroupPaymentOpen(true);
+                }}
+              >
+                <Icon name="creditCard" /> + Group Payment
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleOpenAdd}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Icon name="plus" /> + Add New Vendor
+              </button>
+            </div>
           </div>
         </div>
 
@@ -162,6 +185,20 @@ export default function VendorsPage() {
                       <td style={{ fontSize: 10, color: 'var(--muted)' }}>{v.notes || '—'}</td>
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                          {parseFloat(v.openPayable || 0) > 0 && (
+                            <button
+                              type="button"
+                              className="btn small"
+                              style={{ background: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0', fontWeight: 700 }}
+                              title="Make Group Payment to Vendor"
+                              onClick={() => {
+                                setGroupPaymentVendor(v);
+                                setIsGroupPaymentOpen(true);
+                              }}
+                            >
+                              Pay
+                            </button>
+                          )}
                           <Link
                             href={`/ledger?partyType=vendor&partyId=${v.id}`}
                             className="btn small"
@@ -264,6 +301,16 @@ export default function VendorsPage() {
           </div>
         </form>
       </Modal>
+
+      <VendorGroupPaymentModal
+        isOpen={isGroupPaymentOpen}
+        vendor={groupPaymentVendor}
+        onClose={() => {
+          setIsGroupPaymentOpen(false);
+          setGroupPaymentVendor(null);
+        }}
+        onSuccess={loadVendors}
+      />
     </>
   );
 }
