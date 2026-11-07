@@ -28,6 +28,7 @@ export default function StockAdjustmentModal({
   const [vendorName, setVendorName] = useState('');
   const [purchaseInvoiceNo, setPurchaseInvoiceNo] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
   const [paidInput, setPaidInput] = useState('');
   const [isManualPaid, setIsManualPaid] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -62,6 +63,7 @@ export default function StockAdjustmentModal({
       setVendorName('');
       setPurchaseInvoiceNo('');
       setCostPrice('');
+      setSellingPrice('');
       setPaidInput('');
       setIsManualPaid(false);
       setPaymentMethod('Cash');
@@ -72,12 +74,19 @@ export default function StockAdjustmentModal({
         setVendorId(product.vendorId || product.sourceId || '');
         setVendorName(product.vendorName || product.sourceName || '');
         setCostPrice(product.costPrice !== undefined && product.costPrice !== null ? String(product.costPrice) : '');
+        setSellingPrice(product.expectedSalePrice !== undefined && product.expectedSalePrice !== null ? String(product.expectedSalePrice) : '');
         setPurchaseInvoiceNo(product.purchaseInvoiceNo || '');
       }
     }
   }, [isOpen]);
 
-  const currentStock = parseInt(product?.stockQuantity || 0, 10);
+  const currentStock = parseInt(
+    product?.currentStock !== undefined ? product.currentStock :
+    (product?.current_stock !== undefined ? product.current_stock :
+    (product?.quantity !== undefined ? product.quantity :
+    (product?.stockQuantity !== undefined ? product.stockQuantity : 0))),
+    10
+  );
   const numQty = parseInt(quantity || 0, 10);
   const unitCost = costPrice !== '' ? parseFloat(costPrice) : parseFloat(product?.costPrice || 0);
   const totalCost = numQty * unitCost;
@@ -149,6 +158,7 @@ export default function StockAdjustmentModal({
         reason: finalReason,
         date,
         costPrice: unitCost,
+        sellingPrice: sellingPrice !== '' ? parseFloat(sellingPrice) : undefined,
         vendorId: vendorId || null,
         vendorName: vendorName || null,
         purchaseInvoiceNo: purchaseInvoiceNo || null,
@@ -307,8 +317,7 @@ export default function StockAdjustmentModal({
               />
             </div>
 
-            {/* Cost Price Field for Valuation */}
-            <div className="field span-4">
+            {/* Cost & Batch Selling Price Fields */}            <div className={`field ${direction === 'IN' ? 'span-3' : 'span-4'}`}>
               <label>Unit Cost Price (PKR)</label>
               <input
                 className="input"
@@ -321,7 +330,22 @@ export default function StockAdjustmentModal({
               />
             </div>
 
-            <div className="field span-8">
+            {direction === 'IN' && (
+              <div className="field span-3">
+                <label>Batch Selling Price (PKR)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={sellingPrice}
+                  onChange={(e) => setSellingPrice(e.target.value)}
+                  placeholder="Expected Sale Price"
+                />
+              </div>
+            )}
+
+            <div className={`field ${direction === 'IN' ? 'span-6' : 'span-8'}`}>
               <label>Reason / Audit Note *</label>
               <select
                 className="select"

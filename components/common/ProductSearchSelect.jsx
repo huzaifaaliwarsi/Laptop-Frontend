@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, ChevronDown, Check } from 'lucide-react';
-import { formatProductTitle } from '../../utils/formatters';
+import { formatProductTitle, fmtDateDMY } from '../../utils/formatters';
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -259,9 +259,10 @@ export default function ProductSearchSelect({
               const isHighlighted = index === highlightedIndex;
               const expectedPrice = p.expectedSalePrice !== undefined && p.expectedSalePrice !== null ? p.expectedSalePrice : (p.costPrice || 0);
 
-              // Clean meta text: condition and specifications if distinct
+              // Clean meta text: condition, expiry date and specifications if distinct
               const metaParts = [];
               if (p.condition) metaParts.push(p.condition);
+              if (p.expiryDate) metaParts.push(`Exp: ${fmtDateDMY(p.expiryDate)}`);
               if (p.specifications && p.specifications !== p.model && p.specifications !== p.productName) {
                 metaParts.push(p.specifications);
               }

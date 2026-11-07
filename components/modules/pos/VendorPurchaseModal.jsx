@@ -157,6 +157,7 @@ export default function VendorPurchaseModal({
       lowStockAlert: parseInt(productData.lowStockAlert || 1, 10),
       costPrice: cost,
       expectedSalePrice: parseFloat(productData.expectedSalePrice || (cost * 1.15)),
+      expiryDate: productData.expiryDate || null,
       remarks: productData.remarks
     };
 

@@ -84,7 +84,7 @@ export default function EditProductModal({
           brand: product.brand || '',
           model: product.model || '',
           condition: product.condition || 'Used',
-          quantity: product.stockQuantity || product.quantity || 1,
+          quantity: product.currentStock ?? product.current_stock ?? product.quantity ?? product.stockQuantity ?? 1,
           lowStockAlert: product.lowStockAlert || 1,
           costPrice: product.costPrice !== undefined ? String(product.costPrice) : '',
           expectedSalePrice: product.expectedSalePrice !== undefined ? String(product.expectedSalePrice) : '',

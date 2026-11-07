@@ -328,7 +328,17 @@ export default function CommonProductFields({
         />
       </div>
 
-      <div className="field span-8">
+      <div className="field span-4">
+        <label>Expiry Date (Optional / FEFO)</label>
+        <input
+          className="input"
+          type="date"
+          value={values.expiryDate || values.expiry_date || ''}
+          onChange={(e) => handleChange('expiryDate', e.target.value)}
+        />
+      </div>
+
+      <div className="field span-4">
         <label>Remarks</label>
         <input
           className="input"
