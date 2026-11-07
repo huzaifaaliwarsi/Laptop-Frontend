@@ -129,12 +129,12 @@ export default function LedgerPage() {
         </div>
       </div>
 
-     {loading ? (
-  <div className="card" style={{ marginTop: 14 }}>
-    <ProgressLoader />
-  </div>
-) : ledgerData ? (
-  <>
+      {loading ? (
+        <div className="card" style={{ marginTop: 14 }}>
+          <ProgressLoader />
+        </div>
+      ) : ledgerData ? (
+        <>
           {/* 1. Top Dark Summary Header Band */}
           <div style={{
             backgroundColor: '#0648d6',

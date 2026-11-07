@@ -407,30 +407,6 @@ export default function SalesInvoiceModal({
               </div>
             </div>
 
-            {selectedProduct && (
-              <div style={{
-                marginTop: 8,
-                padding: '6px 12px',
-                backgroundColor: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                borderRadius: 6,
-                display: 'flex',
-                gap: 14,
-                alignItems: 'center',
-                fontSize: 11,
-                color: '#1e40af',
-                flexWrap: 'wrap'
-              }}>
-                <span><strong>Category:</strong> {selectedProduct.categoryName || selectedProduct.category || 'Product'}</span>
-                <span><strong>Item:</strong> {selectedProduct.brand} {selectedProduct.model || selectedProduct.productName || ''}</span>
-                {selectedProduct.specifications && (
-                  <span><strong>Specs:</strong> {selectedProduct.specifications}</span>
-                )}
-                <span><strong>Stock:</strong> <strong style={{ color: '#059669' }}>{selectedProduct.currentStock} in stock</strong></span>
-                <span><strong>Barcode / Code:</strong> <code>{selectedProduct.barcode || selectedProduct.code}</code></span>
-              </div>
-            )}
-
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #dce6f2' }}>
               <div className="form-grid">
                 <div className="field span-6">

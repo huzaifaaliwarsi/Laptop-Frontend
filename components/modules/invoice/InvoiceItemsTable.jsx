@@ -42,24 +42,9 @@ export default function InvoiceItemsTable({
               const disc = parseFloat(item.discount || 0);
               const netAmt = parseFloat(item.lineTotal || (grossAmt - disc));
 
-              // Resolve category cleanly with multiple fallbacks
-              const rawCat = item.category || item.categoryName || item.category_name || '';
-              let itemCategory = rawCat;
-              if (!itemCategory && item.description) {
-                if (item.description.includes('—')) {
-                  itemCategory = item.description.split('—')[0].trim();
-                } else if (item.description.includes(' - ')) {
-                  itemCategory = item.description.split(' - ')[0].trim();
-                }
-              }
-              if (!itemCategory) {
-                itemCategory = item.itemType === 'service' ? 'Service' : item.itemType === 'part' ? 'Spare Part' : '';
-              }
-
-              let cleanItemDesc = item.description || '';
-              if (itemCategory && cleanItemDesc.startsWith(itemCategory)) {
-                cleanItemDesc = cleanItemDesc.replace(new RegExp(`^${itemCategory}\\s*[-—|]\\s*`, 'i'), '').trim();
-              }
+              // Real category from product inventory
+              const itemCategory = item.category || item.categoryName || item.category_name || '';
+              const cleanItemDesc = (item.description || '').trim();
 
               subtotalGross += grossAmt;
               subtotalNet += netAmt;
