@@ -111,6 +111,10 @@ export default function ReportsPage() {
   const [overview, setOverview]   = useState(null);
   const [tableData, setTableData] = useState([]);
   const [tableSummary, setTableSummary] = useState(null);
+  const [recoveriesData, setRecoveriesData] = useState([]);
+  const [supplierPaymentsData, setSupplierPaymentsData] = useState([]);
+  const [salesViewMode, setSalesViewMode] = useState('invoices'); // 'invoices' | 'recoveries'
+  const [purchasesViewMode, setPurchasesViewMode] = useState('invoices'); // 'invoices' | 'payments'
   const [pnlData, setPnlData]     = useState(null);
   const [cashData, setCashData]   = useState(null);
   const [acctData, setAcctData]   = useState(null);
@@ -176,11 +180,19 @@ export default function ReportsPage() {
 
       } else if (activeTab === 'sales') {
         const r = await api.get(`/reports/sales${q}`, opts);
-        if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
+        if (r.success) {
+          setTableData(r.data || []);
+          setTableSummary(r.summary);
+          setRecoveriesData(r.recoveries || []);
+        }
 
       } else if (activeTab === 'purchases') {
         const r = await api.get(`/reports/purchases${q}`, opts);
-        if (r.success) { setTableData(r.data || []); setTableSummary(r.summary); }
+        if (r.success) {
+          setTableData(r.data || []);
+          setTableSummary(r.summary);
+          setSupplierPaymentsData(r.supplierPayments || []);
+        }
 
       } else if (activeTab === 'vendor-returns') {
         const r = await api.get(`/reports/vendor-returns${q}`, opts);
@@ -209,17 +221,23 @@ export default function ReportsPage() {
   useEffect(() => { loadReport(); }, [loadReport]);
 
   const downloadCSV = () => {
-    const map = {
-      sales: 'sales',
-      purchases: 'purchases',
-      'vendor-returns': 'vendor-returns',
-      inventory: 'inventory',
-      'spare-parts': 'spare-parts',
-      repairs: 'repairs',
-      expenses: 'expenses',
-      'voids-returns': 'returns'
-    };
-    const csvType = map[activeTab];
+    let csvType = activeTab;
+    if (activeTab === 'sales') {
+      csvType = salesViewMode === 'recoveries' ? 'collections' : 'sales';
+    } else if (activeTab === 'purchases') {
+      csvType = purchasesViewMode === 'payments' ? 'supplier-payments' : 'purchases';
+    } else if (activeTab === 'voids-returns') {
+      csvType = 'returns';
+    } else {
+      const map = {
+        'vendor-returns': 'vendor-returns',
+        inventory: 'inventory',
+        'spare-parts': 'spare-parts',
+        repairs: 'repairs',
+        expenses: 'expenses'
+      };
+      csvType = map[activeTab];
+    }
     if (!csvType) return;
     const qs = buildQS();
     const url = `${getBaseUrl()}/reports/csv/${csvType}${qs ? '?' + qs : ''}`;
@@ -407,26 +425,81 @@ export default function ReportsPage() {
         {activeTab === 'sales' && (
           <>
             {!loading && tableSummary && (
-              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
-                <KPICard label="Gross Sales" value={money(tableSummary.grossSales)} sub={`${tableSummary.count} invoices`} />
-                {isAdmin && <KPICard label="Total COGS" value={money(tableSummary.totalCogs)} accent="#dc2626" sub="Cost price snapshots" />}
-                {isAdmin && <KPICard label="Gross Profit" value={money(tableSummary.grossProfit)} accent={tableSummary.grossProfit >= 0 ? '#16a34a' : '#dc2626'} />}
-                <KPICard label="Outstanding" value={money(tableSummary.totalOutstanding)} accent={tableSummary.totalOutstanding > 0 ? '#dc2626' : '#16a34a'} />
+              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, borderBottom: '1px solid var(--border)' }}>
+                <KPICard label="Gross Sales (Invoiced)" value={money(tableSummary.grossSales)} sub={`${tableSummary.count} invoices issued`} />
+                <KPICard label="Total Collected (Period)" value={money(tableSummary.totalCollections ?? tableSummary.totalPaid)} accent="#16a34a" sub={`Initial: ${money(tableSummary.initialCollections || 0)} · Udhar: ${money(tableSummary.udharRecoveries || 0)}`} />
+                <KPICard label="Client Udhar Recovered" value={money(tableSummary.udharRecoveries || 0)} accent="#2563eb" sub={`${tableSummary.recoveriesCount || recoveriesData.length} recovery payments`} />
+                {isAdmin && <KPICard label="Period Sales Profit" value={money(tableSummary.grossProfit)} accent={tableSummary.grossProfit >= 0 ? '#16a34a' : '#dc2626'} sub="From invoices in period" />}
+                <KPICard label="Invoice Balance Due" value={money(tableSummary.totalOutstanding)} accent={tableSummary.totalOutstanding > 0 ? '#dc2626' : '#16a34a'} sub="Unsettled on these bills" />
               </div>
             )}
-            <ReportTable loading={loading} cols={[
-              { label: 'Invoice No', key: 'invoiceNo', bold: true },
-              { label: 'Date', key: 'date', fmt: fmtDate },
-              { label: 'Customer', key: 'customerName' },
-              { label: 'Type', key: 'type', render: v => <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#eff6ff', color: '#2563eb' }}>{v}</span> },
-              { label: 'Payment', key: 'paymentMethod' },
-              { label: 'Total', key: 'total', right: true, fmt: money },
-              { label: 'Paid', key: 'paid', right: true, fmt: money, color: '#16a34a' },
-              ...(isAdmin ? [{ label: 'COGS', key: 'cogs', right: true, fmt: money, color: '#94a3b8' }] : []),
-              { label: 'Remaining', key: 'remaining', right: true, fmt: money, colorFn: v => v > EPSILON ? '#dc2626' : '#16a34a' },
-              { label: 'Status', key: 'paymentStatus', render: v => <SBadge status={v} /> },
-              ...(isAdmin ? [{ label: 'By', key: 'soldBy', muted: true }] : []),
-            ]} data={tableData} emptyMsg="No sales for this period." />
+
+            {/* Sub-view toggle: Invoices vs Collections / Udhar Recoveries */}
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className={`btn ${salesViewMode === 'invoices' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 12px' }}
+                  onClick={() => setSalesViewMode('invoices')}
+                >
+                  <Icon name="fileText" size={12} /> Sales Invoices ({tableData.length})
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${salesViewMode === 'recoveries' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 12px' }}
+                  onClick={() => setSalesViewMode('recoveries')}
+                >
+                  <Icon name="creditCard" size={12} /> Client Udhar Recoveries ({recoveriesData.length})
+                </button>
+              </div>
+              <span style={{ fontSize: 11, color: '#64748b' }}>
+                {salesViewMode === 'invoices' ? 'Displays sales based on original invoice date' : 'Displays cash/online received on actual payment date'}
+              </span>
+            </div>
+
+            {salesViewMode === 'invoices' ? (
+              <ReportTable loading={loading} cols={[
+                { label: 'Invoice No', key: 'invoiceNo', bold: true },
+                { label: 'Date', key: 'date', fmt: fmtDate },
+                { label: 'Customer', key: 'customerName' },
+                { label: 'Type', key: 'type', render: v => <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#eff6ff', color: '#2563eb' }}>{v}</span> },
+                { label: 'Payment', key: 'paymentMethod' },
+                { label: 'Total', key: 'total', right: true, fmt: money },
+                { label: 'Initial Paid', key: 'initialPaid', right: true, fmt: money, color: '#16a34a' },
+                { label: 'Total Paid', key: 'paid', right: true, fmt: money, color: '#16a34a' },
+                ...(isAdmin ? [{ label: 'COGS', key: 'cogs', right: true, fmt: money, color: '#94a3b8' }] : []),
+                { label: 'Remaining', key: 'remaining', right: true, fmt: money, colorFn: v => v > EPSILON ? '#dc2626' : '#16a34a' },
+                { label: 'Status', key: 'paymentStatus', render: v => <SBadge status={v} /> },
+                ...(isAdmin ? [{ label: 'By', key: 'soldBy', muted: true }] : []),
+              ]} data={tableData} emptyMsg="No sales for this period." />
+            ) : (
+              <ReportTable loading={loading} cols={[
+                { label: 'Payment Date', key: 'date', fmt: fmtDate, bold: true },
+                { label: 'Customer', key: 'customerName', bold: true },
+                { label: 'Payment Type', key: 'type', render: (v, r) => (
+                  <span style={{
+                    fontSize: 10,
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                    fontWeight: 600,
+                    background: r.isInitial ? '#dcfce7' : '#dbeafe',
+                    color: r.isInitial ? '#166534' : '#1e40af'
+                  }}>
+                    {v}
+                  </span>
+                )},
+                { label: 'Invoice No', key: 'invoiceNo' },
+                { label: 'Invoice Date', key: 'invoiceDate', fmt: fmtDate, muted: true },
+                { label: 'Invoice Total', key: 'invoiceTotal', right: true, fmt: money },
+                { label: 'Amount Recovered', key: 'amount', right: true, fmt: money, color: '#16a34a', bold: true },
+                { label: 'Method', key: 'paymentMethod' },
+                { label: 'Reference', key: 'referenceId', muted: true },
+                { label: 'Notes', key: 'notes', muted: true },
+                { label: 'Received By', key: 'receivedBy', muted: true }
+              ]} data={recoveriesData} emptyMsg="No client collections or udhar recoveries recorded in this period." />
+            )}
           </>
         )}
 
@@ -436,25 +509,81 @@ export default function ReportsPage() {
         {activeTab === 'purchases' && (
           <>
             {!loading && tableSummary && (
-              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
-                <KPICard label="Total Purchases" value={money(tableSummary.totalPurchases)} sub={`${tableSummary.count} invoices`} accent="#dc2626" />
-                <KPICard label="Total Paid" value={money(tableSummary.totalPaid)} accent="#16a34a" />
-                <KPICard label="Outstanding Payable" value={money(tableSummary.totalOutstanding)} accent={tableSummary.totalOutstanding > 0 ? '#d97706' : '#94a3b8'} />
+              <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, borderBottom: '1px solid var(--border)' }}>
+                <KPICard label="Total Purchases (Invoiced)" value={money(tableSummary.totalPurchases)} sub={`${tableSummary.count} invoices`} accent="#dc2626" />
+                <KPICard label="Total Paid (Period)" value={money(tableSummary.totalPaid)} accent="#16a34a" sub={`Initial: ${money(tableSummary.initialSupplierPayments || 0)} · Udhar: ${money(tableSummary.supplierUdharPayments || 0)}`} />
+                <KPICard label="Supplier Udhar Paid" value={money(tableSummary.supplierUdharPayments || 0)} accent="#2563eb" sub={`${tableSummary.supplierPaymentsCount || supplierPaymentsData.length} payments`} />
+                <KPICard label="New Credit Taken" value={money(tableSummary.newCreditTaken || 0)} accent="#d97706" sub="Unpaid on new purchases" />
+                <KPICard label="Outstanding Payable" value={money(tableSummary.totalOutstanding)} accent={tableSummary.totalOutstanding > 0 ? '#d97706' : '#94a3b8'} sub="On these invoices" />
               </div>
             )}
-            <ReportTable loading={loading} cols={[
-              { label: 'Invoice No', key: 'invoiceNo', bold: true },
-              { label: 'Date', key: 'date', fmt: fmtDate },
-              { label: 'Party', key: 'partyName' },
-              { label: 'Type', key: 'type', render: v => <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#fff7ed', color: '#c2410c' }}>{v}</span> },
-              { label: 'Payment', key: 'paymentMethod' },
-              { label: 'Total', key: 'total', right: true, fmt: money },
-              { label: 'Paid', key: 'paid', right: true, fmt: money, color: '#16a34a' },
-              { label: 'Cr. Adj.', key: 'creditAdjusted', right: true, fmt: money, color: '#94a3b8' },
-              { label: 'Remaining', key: 'remaining', right: true, fmt: money, colorFn: v => v > EPSILON ? '#dc2626' : '#16a34a' },
-              { label: 'Status', key: 'paymentStatus', render: (v, row) => <SBadge status={v} isVoided={row.isVoided} /> },
-              { label: 'By', key: 'createdBy', muted: true },
-            ]} data={tableData} emptyMsg="No purchases for this period." />
+
+            {/* Sub-view toggle: Invoices vs Supplier Payments */}
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className={`btn ${purchasesViewMode === 'invoices' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 12px' }}
+                  onClick={() => setPurchasesViewMode('invoices')}
+                >
+                  <Icon name="fileText" size={12} /> Stock Purchases ({tableData.length})
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${purchasesViewMode === 'payments' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 12px' }}
+                  onClick={() => setPurchasesViewMode('payments')}
+                >
+                  <Icon name="creditCard" size={12} /> Supplier Payments ({supplierPaymentsData.length})
+                </button>
+              </div>
+              <span style={{ fontSize: 11, color: '#64748b' }}>
+                {purchasesViewMode === 'invoices' ? 'Displays stock purchases based on purchase invoice date' : 'Displays cash/online paid out on actual payment date'}
+              </span>
+            </div>
+
+            {purchasesViewMode === 'invoices' ? (
+              <ReportTable loading={loading} cols={[
+                { label: 'Invoice No', key: 'invoiceNo', bold: true },
+                { label: 'Date', key: 'date', fmt: fmtDate },
+                { label: 'Party', key: 'partyName' },
+                { label: 'Type', key: 'type', render: v => <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#fff7ed', color: '#c2410c' }}>{v}</span> },
+                { label: 'Payment', key: 'paymentMethod' },
+                { label: 'Total', key: 'total', right: true, fmt: money },
+                { label: 'Initial Paid', key: 'initialPaid', right: true, fmt: money, color: '#16a34a' },
+                { label: 'Total Paid', key: 'paid', right: true, fmt: money, color: '#16a34a' },
+                { label: 'Cr. Adj.', key: 'creditAdjusted', right: true, fmt: money, color: '#94a3b8' },
+                { label: 'Remaining', key: 'remaining', right: true, fmt: money, colorFn: v => v > EPSILON ? '#dc2626' : '#16a34a' },
+                { label: 'Status', key: 'paymentStatus', render: (v, row) => <SBadge status={v} isVoided={row.isVoided} /> },
+                { label: 'By', key: 'createdBy', muted: true },
+              ]} data={tableData} emptyMsg="No purchases for this period." />
+            ) : (
+              <ReportTable loading={loading} cols={[
+                { label: 'Payment Date', key: 'date', fmt: fmtDate, bold: true },
+                { label: 'Supplier / Vendor', key: 'partyName', bold: true },
+                { label: 'Payment Type', key: 'type', render: (v, r) => (
+                  <span style={{
+                    fontSize: 10,
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                    fontWeight: 600,
+                    background: r.isInitial ? '#dcfce7' : '#ffedd5',
+                    color: r.isInitial ? '#166534' : '#c2410c'
+                  }}>
+                    {v}
+                  </span>
+                )},
+                { label: 'Invoice No', key: 'invoiceNo' },
+                { label: 'Purchase Date', key: 'invoiceDate', fmt: fmtDate, muted: true },
+                { label: 'Purchase Total', key: 'invoiceTotal', right: true, fmt: money },
+                { label: 'Amount Paid', key: 'amount', right: true, fmt: money, color: '#dc2626', bold: true },
+                { label: 'Method', key: 'paymentMethod' },
+                { label: 'Reference', key: 'referenceId', muted: true },
+                { label: 'Notes', key: 'notes', muted: true },
+                { label: 'Paid By', key: 'paidBy', muted: true }
+              ]} data={supplierPaymentsData} emptyMsg="No supplier payments recorded in this period." />
+            )}
           </>
         )}
 
@@ -576,9 +705,9 @@ export default function ReportsPage() {
             {!loading && tableSummary && (
               <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, borderBottom: '1px solid var(--border)' }}>
                 <KPICard label="Total SKUs" value={tableSummary.totalProducts} sub={`${tableSummary.totalUnits} units`} />
-                <KPICard label="Stock Cost Value" value={money(tableSummary.totalCostValue)} accent="#dc2626" sub="current_stock × cost_price" />
-                <KPICard label="Stock Sale Value" value={money(tableSummary.totalSaleValue)} accent="#2563eb" sub="current_stock × EP" />
-                <KPICard label="Unrealised Margin" value={money(tableSummary.totalUnrealisedMargin)} accent="#16a34a" sub="Sale − Cost" />
+                <KPICard label="Stock Cost Value" value={money(tableSummary.totalCostValue)} accent="#dc2626" sub="Strict FIFO / FEFO Valuation" />
+                <KPICard label="Stock Sale Value" value={money(tableSummary.totalSaleValue)} accent="#2563eb" sub="Strict FIFO / FEFO Retail Value" />
+                <KPICard label="Unrealised Margin" value={money(tableSummary.totalUnrealisedMargin)} accent="#16a34a" sub="Retail Value − Cost Value" />
               </div>
             )}
             <ReportTable loading={loading} cols={[
@@ -589,10 +718,19 @@ export default function ReportsPage() {
               { label: 'Opening', key: 'initialStock', right: true, color: '#94a3b8' },
               { label: 'IN', key: 'stockIn', right: true, color: '#16a34a' },
               { label: 'OUT', key: 'stockOut', right: true, color: '#dc2626' },
-              { label: 'On Hand', key: 'currentStock', right: true, bold: true },
-              { label: 'Cost Price', key: 'costPrice', right: true, fmt: money },
-              { label: 'Cost Value', key: 'costValue', right: true, fmt: money, color: '#dc2626' },
-              { label: 'Sale Value', key: 'saleValue', right: true, fmt: money, color: '#16a34a' },
+              { label: 'On Hand', key: 'currentStock', right: true, bold: true, render: (v, row) => (
+                <div>
+                  <span>{v}</span>
+                  {row.activeBatches > 1 && (
+                    <span style={{ display: 'block', fontSize: 9.5, color: '#2563eb', fontWeight: 600 }}>
+                      {row.activeBatches} Batches (FIFO)
+                    </span>
+                  )}
+                </div>
+              )},
+              { label: 'Cost Price (FIFO)', key: 'costPrice', right: true, fmt: money },
+              { label: 'Cost Value (FIFO)', key: 'costValue', right: true, fmt: money, color: '#dc2626', bold: true },
+              { label: 'Sale Value (FIFO)', key: 'saleValue', right: true, fmt: money, color: '#16a34a', bold: true },
             ]} data={tableData} emptyMsg="No inventory data." />
           </>
         )}
@@ -826,11 +964,22 @@ function ReportTable({ loading, cols, data, emptyMsg }) {
 /** Cash/Online waterfall box */
 function FlowBox({ title, data, color }) {
   const rows = [
-    { label: 'Opening Balance', value: data.opening, color: undefined },
-    { label: '+ Total Received', value: data.received, color: '#16a34a' },
-    { label: '− Paid Out', value: data.paidOut, color: '#dc2626', neg: true },
+    { label: 'Period Opening Balance', value: data.opening, color: undefined },
+    { label: '+ Total Received (Inflows)', value: data.received, color: '#16a34a' },
+    ...(data.salesInitial !== undefined && data.clientRecoveries !== undefined ? [
+      { label: '   ↳ POS Upfront Sales', value: data.salesInitial, color: '#64748b', indent: true },
+      { label: '   ↳ Client Udhar Recoveries', value: data.clientRecoveries, color: '#2563eb', indent: true },
+    ] : []),
+    { label: '− Total Paid Out (Outflows)', value: data.paidOut, color: '#dc2626', neg: true },
+    ...(data.purchasesInitial !== undefined && data.supplierUdharPaid !== undefined ? [
+      { label: '   ↳ Upfront Purchases', value: data.purchasesInitial, color: '#64748b', neg: true, indent: true },
+      { label: '   ↳ Supplier Udhar Paid', value: data.supplierUdharPaid, color: '#c2410c', neg: true, indent: true },
+    ] : []),
     { label: '− Operating Expenses', value: data.expenses, color: '#dc2626', neg: true },
-    { label: '= Balance', value: data.balance, color: data.balance >= 0 ? color : '#dc2626', bold: true, total: true },
+    { label: '= Period Closing Balance', value: data.balance, color: data.balance >= 0 ? color : '#dc2626', bold: true, total: true },
+    ...(data.liveAvailable !== undefined ? [
+      { label: 'Current Live Available in Drawer/Bank', value: data.liveAvailable, color: '#0f172a', bold: true }
+    ] : [])
   ];
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
@@ -840,13 +989,15 @@ function FlowBox({ title, data, color }) {
       {rows.map((r, i) => (
         <div key={i} style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '9px 14px',
+          padding: r.indent ? '7px 14px 7px 26px' : '9px 14px',
           background: r.total ? '#f0fdf4' : i % 2 === 0 ? '#fff' : '#fafbfc',
           borderTop: r.total ? '2px solid #e2e8f0' : '1px solid #f1f5f9'
         }}>
-          <span style={{ fontSize: 12, color: '#64748b' }}>{r.label}</span>
-          <strong style={{ fontSize: 13, color: r.color || '#1e293b', fontWeight: r.bold ? 800 : 600 }}>
-            {r.neg ? '−' : ''}{moneyFull(r.neg ? r.value : r.value)}
+          <span style={{ fontSize: r.indent ? 11 : 12, color: r.indent ? '#475569' : '#64748b', fontStyle: r.indent ? 'italic' : 'normal' }}>
+            {r.label}
+          </span>
+          <strong style={{ fontSize: r.indent ? 11.5 : 13, color: r.color || '#1e293b', fontWeight: r.bold ? 800 : r.indent ? 600 : 600 }}>
+            {r.neg ? '−' : ''}{moneyFull(r.value)}
           </strong>
         </div>
       ))}

@@ -254,7 +254,7 @@ export default function InventoryPage() {
 
   // Metrics calculation
   const totalRetailUnits = products.reduce((sum, p) => sum + (p.currentStock || 0), 0);
-  const totalRetailCost = products.reduce((sum, p) => sum + ((p.currentStock || 0) * (parseFloat(p.costPrice) || 0)), 0);
+  const totalRetailCost = products.reduce((sum, p) => sum + (p.stockCostValue !== undefined && p.stockCostValue !== null ? parseFloat(p.stockCostValue || 0) : ((p.currentStock || 0) * (parseFloat(p.costPrice) || 0))), 0);
 
   const totalSpareUnits = spareParts.reduce((sum, p) => sum + (p.currentStock || 0), 0);
   const totalSpareCost = spareParts.reduce((sum, p) => sum + ((p.currentStock || 0) * (parseFloat(p.costPrice) || 0)), 0);
@@ -490,12 +490,29 @@ export default function InventoryPage() {
                         <td><span className="badge">{p.condition}</span></td>
                         <td style={{ textAlign: 'right', fontWeight: 800, color: p.currentStock <= p.lowStockAlert ? 'var(--danger)' : 'var(--text)' }}>
                           {p.currentStock}
+                          {p.activeBatchesCount > 1 && (
+                            <div style={{ fontSize: 9.5, color: '#2563eb', fontWeight: 600 }}>
+                              {p.activeBatchesCount} Batches (FIFO)
+                            </div>
+                          )}
                         </td>
                         {isAdmin && (
-                          <td style={{ textAlign: 'right' }}>{money(p.costPrice)}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div>{money(p.costPrice)}</div>
+                            {p.stockCostValue !== undefined && p.currentStock > 1 && (
+                              <div style={{ fontSize: 10, color: 'var(--muted)' }} title="FIFO Stock Valuation">
+                                Val: {money(p.stockCostValue)}
+                              </div>
+                            )}
+                          </td>
                         )}
                         <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--navy)' }}>
-                          {money(p.expectedSalePrice || (p.costPrice * 1.15))}
+                          <div>{money(p.expectedSalePrice || (p.costPrice * 1.15))}</div>
+                          {p.stockSaleValue !== undefined && p.currentStock > 1 && (
+                            <div style={{ fontSize: 10, color: '#16a34a' }} title="FIFO Retail Valuation">
+                              Val: {money(p.stockSaleValue)}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <span className={`badge ${

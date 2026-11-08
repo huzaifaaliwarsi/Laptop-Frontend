@@ -149,7 +149,10 @@ export default function DashboardPage() {
             </div>
             <div className="stat-value text-2xl font-bold text-slate-900 mt-2 tracking-tight">{money(stats.totalSales)}</div>
             <div className="stat-note text-xs text-slate-400 mt-1">
-              Today: <strong className="text-emerald-600">{money(stats.todaySales)}</strong> ({stats.todaySalesCount || 0} bills)
+              Today Billed: <strong className="text-slate-700">{money(stats.todaySales)}</strong>
+              {stats.todayCollections > 0 && (
+                <span> · Collected: <strong className="text-emerald-600">{money(stats.todayCollections)}</strong></span>
+              )}
             </div>
           </div>
 
@@ -175,6 +178,9 @@ export default function DashboardPage() {
               {money(stats.customerReceivables)}
             </div>
             <div className="stat-note text-xs text-slate-400 mt-1">
+              {stats.todayUdharRecovered > 0 && (
+                <span className="text-emerald-600 font-semibold">Today Recovered: {money(stats.todayUdharRecovered)} · </span>
+              )}
               Vendor Payables: <strong>{money(stats.vendorPayables)}</strong>
             </div>
           </div>

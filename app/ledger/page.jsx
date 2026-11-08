@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
@@ -27,6 +27,8 @@ export default function LedgerPage() {
   const [partyType, setPartyType] = useState(initialType);
   const [partyList, setPartyList] = useState([]);
   const [selectedPartyId, setSelectedPartyId] = useState(initialId);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [ledgerData, setLedgerData] = useState(null);
   const [viewMode, setViewMode] = useState('bills'); // 'bills' | 'log'
   const [loading, setLoading] = useState(false);
@@ -50,20 +52,24 @@ export default function LedgerPage() {
   }, [partyType]);
 
   // Load Ledger
-  const loadLedger = () => {
+  const loadLedger = useCallback(() => {
     if (!selectedPartyId) return;
     setLoading(true);
-    api.get(`/ledger/party/${partyType}/${selectedPartyId}?_t=${Date.now()}`)
+    const qs = new URLSearchParams();
+    if (fromDate) qs.set('from', fromDate);
+    if (toDate) qs.set('to', toDate);
+    qs.set('_t', Date.now());
+    api.get(`/ledger/party/${partyType}/${selectedPartyId}?${qs.toString()}`)
       .then(res => {
         if (res.success) setLedgerData(res.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, [partyType, selectedPartyId, fromDate, toDate]);
 
   useEffect(() => {
     loadLedger();
-  }, [partyType, selectedPartyId]);
+  }, [loadLedger]);
 
   const toggleBill = (id) => {
     setExpandedBills(prev => ({ ...prev, [id]: !prev[id] }));
@@ -127,6 +133,30 @@ export default function LedgerPage() {
             )}
           </div>
         </div>
+
+        {/* Date Filter Bar */}
+        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="calendar" size={13} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Date Filter:</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>From:</label>
+            <input className="input" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ padding: '4px 8px', fontSize: 12 }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>To:</label>
+            <input className="input" type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ padding: '4px 8px', fontSize: 12 }} />
+          </div>
+          {(fromDate || toDate) && (
+            <button type="button" className="btn btn-ghost" onClick={() => { setFromDate(''); setToDate(''); }} style={{ fontSize: 11, padding: '4px 10px' }}>
+              <Icon name="x" size={12} /> Clear Filter
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 'auto' }}>
+            {fromDate ? `Calculates opening balance before ${fromDate}` : 'Showing all-time statement'}
+          </span>
+        </div>
       </div>
 
       {loading ? (
@@ -160,12 +190,12 @@ export default function LedgerPage() {
             {/* Center */}
             <div style={{ textAlign: 'center', minWidth: 240 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#f8f8f8', display: 'block' }}>
-                Current Balance
+                {fromDate || toDate ? 'Period Closing Balance' : 'Current Balance'}
               </span>
               <strong style={{ fontSize: 32, fontWeight: 800, color: '#ffffff', display: 'block', marginTop: 2 }}>
                 {money(Math.abs(summary.netBalance || 0))}
               </strong>
-              <div style={{ marginTop: 6 }}>
+              <div style={{ marginTop: 6, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <span style={{
                   display: 'inline-block',
                   padding: '3px 14px',
@@ -178,6 +208,20 @@ export default function LedgerPage() {
                 }}>
                   {summary.netBalanceLabel || 'Settled'}
                 </span>
+                {fromDate && (
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '3px 12px',
+                    borderRadius: 9999,
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}>
+                    Opening Bal: {money(summary.openingBalance || 0)}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -499,23 +543,32 @@ export default function LedgerPage() {
                     </thead>
                     <tbody>
                       {transactionLog.length > 0 ? (
-                        transactionLog.map((entry, idx) => (
-                          <tr key={idx}>
-                            <td>{fmtDate(entry.date)}</td>
-                            <td><strong>{entry.reference || '—'}</strong></td>
-                            <td>{entry.description}</td>
-                            <td style={{ textAlign: 'right' }}>{entry.billAmount ? money(entry.billAmount) : '—'}</td>
-                            <td style={{ textAlign: 'right', color: entry.paid > 0 ? 'var(--danger)' : 'inherit' }}>
-                              {entry.paid > 0 ? money(entry.paid) : '—'}
-                            </td>
-                            <td style={{ textAlign: 'right', color: entry.received > 0 ? 'var(--success)' : 'inherit' }}>
-                              {entry.received > 0 ? money(entry.received) : '—'}
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: 850, color: entry.running > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                              {money(entry.running)}
-                            </td>
-                          </tr>
-                        ))
+                        transactionLog.map((entry, idx) => {
+                          const isOpening = entry.id === 'OPENING';
+                          return (
+                            <tr key={idx} style={isOpening ? { backgroundColor: '#f0fdf4', fontWeight: 600 } : undefined}>
+                              <td>{fmtDate(entry.date)}</td>
+                              <td><strong>{entry.reference || '—'}</strong></td>
+                              <td>
+                                {isOpening ? (
+                                  <span style={{ color: '#166534', fontWeight: 700 }}>{entry.description}</span>
+                                ) : (
+                                  entry.description
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>{entry.billAmount ? money(entry.billAmount) : '—'}</td>
+                              <td style={{ textAlign: 'right', color: entry.paid > 0 ? 'var(--danger)' : 'inherit' }}>
+                                {entry.paid > 0 ? money(entry.paid) : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right', color: entry.received > 0 ? 'var(--success)' : 'inherit' }}>
+                                {entry.received > 0 ? money(entry.received) : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 850, color: entry.running > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                                {money(entry.running)}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td colSpan={7} style={{ textAlign: 'center', padding: 28, color: 'var(--muted)' }}>
