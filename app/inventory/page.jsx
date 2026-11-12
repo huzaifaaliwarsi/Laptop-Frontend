@@ -1,22 +1,24 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Store, Laptop, Cpu, Plus, RefreshCw, Trash2, Edit, Settings2 } from 'lucide-react';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import AddProductModal from '../../components/modules/inventory/AddProductModal';
-import EditProductModal from '../../components/modules/inventory/EditProductModal';
-import StockAdjustmentModal from '../../components/modules/inventory/StockAdjustmentModal';
-import VendorReturnModal from '../../components/modules/inventory/VendorReturnModal';
-import BulkCsvModal from '../../components/modules/inventory/BulkCsvModal';
-import ProductHistoryModal from '../../components/modules/inventory/ProductHistoryModal';
-import ManageCategoriesModal from '../../components/common/ManageCategoriesModal';
-import RepairPartModal from '../../components/modules/repairs/RepairPartModal';
-import AdjustSparePartStockModal from '../../components/modules/repairs/AdjustSparePartStockModal';
-import RepairPartHistoryModal from '../../components/modules/repairs/RepairPartHistoryModal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/common/Toast';
+
+const AddProductModal = dynamic(() => import('../../components/modules/inventory/AddProductModal'), { ssr: false });
+const EditProductModal = dynamic(() => import('../../components/modules/inventory/EditProductModal'), { ssr: false });
+const StockAdjustmentModal = dynamic(() => import('../../components/modules/inventory/StockAdjustmentModal'), { ssr: false });
+const VendorReturnModal = dynamic(() => import('../../components/modules/inventory/VendorReturnModal'), { ssr: false });
+const BulkCsvModal = dynamic(() => import('../../components/modules/inventory/BulkCsvModal'), { ssr: false });
+const ProductHistoryModal = dynamic(() => import('../../components/modules/inventory/ProductHistoryModal'), { ssr: false });
+const ManageCategoriesModal = dynamic(() => import('../../components/common/ManageCategoriesModal'), { ssr: false });
+const RepairPartModal = dynamic(() => import('../../components/modules/repairs/RepairPartModal'), { ssr: false });
+const AdjustSparePartStockModal = dynamic(() => import('../../components/modules/repairs/AdjustSparePartStockModal'), { ssr: false });
+const RepairPartHistoryModal = dynamic(() => import('../../components/modules/repairs/RepairPartHistoryModal'), { ssr: false });
 
 const SPARE_PART_CATEGORIES = [
   'Screen / Display',
@@ -52,6 +54,7 @@ export default function InventoryPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -69,6 +72,7 @@ export default function InventoryPage() {
   const [spareParts, setSpareParts] = useState([]);
   const [spareCategories, setSpareCategories] = useState([]);
   const [partSearch, setPartSearch] = useState('');
+  const [debouncedPartSearch, setDebouncedPartSearch] = useState('');
   const [partCategoryFilter, setPartCategoryFilter] = useState('');
   const [partStatusFilter, setPartStatusFilter] = useState('');
   const [loadingParts, setLoadingParts] = useState(false);
@@ -83,30 +87,53 @@ export default function InventoryPage() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  // Debounce product & spare part search inputs to prevent API call on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedPartSearch(partSearch), 250);
+    return () => clearTimeout(t);
+  }, [partSearch]);
+
+  const loadCategories = useCallback((force = false) => {
+    return api.get('/categories', { noCache: force })
+      .then((cRes) => {
+        if (cRes.success) setCategories(cRes.data.productCategories || []);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
   // Load Retail Products
   const loadProducts = useCallback((force = false) => {
     setLoadingProducts(true);
     let url = '/products?';
-    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`;
     if (categoryFilter) url += `category=${encodeURIComponent(categoryFilter)}&`;
     if (statusFilter) url += `status=${encodeURIComponent(statusFilter)}&`;
     if (force) url += `_t=${Date.now()}&`;
 
-    return Promise.all([
-      api.get(url),
-      api.get('/categories', { noCache: force })
-    ]).then(([pRes, cRes]) => {
-      if (pRes.success) setProducts(pRes.data || []);
-      if (cRes.success) setCategories(cRes.data.productCategories || []);
-    }).catch(console.error)
-    .finally(() => setLoadingProducts(false));
-  }, [search, categoryFilter, statusFilter]);
+    if (force) loadCategories(true);
+
+    return api.get(url)
+      .then((pRes) => {
+        if (pRes.success) setProducts(pRes.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingProducts(false));
+  }, [debouncedSearch, categoryFilter, statusFilter, loadCategories]);
 
   // Load Workshop Spare Parts
   const loadSpareParts = useCallback((force = false) => {
     setLoadingParts(true);
     let url = '/repair-parts?';
-    if (partSearch) url += `search=${encodeURIComponent(partSearch)}&`;
+    if (debouncedPartSearch) url += `search=${encodeURIComponent(debouncedPartSearch)}&`;
     if (partCategoryFilter) url += `category=${encodeURIComponent(partCategoryFilter)}&`;
     if (partStatusFilter) {
       if (partStatusFilter === 'In Stock') url += 'inStockOnly=true&';
@@ -127,7 +154,7 @@ export default function InventoryPage() {
       })
       .catch(console.error)
       .finally(() => setLoadingParts(false));
-  }, [partSearch, partCategoryFilter, partStatusFilter]);
+  }, [debouncedPartSearch, partCategoryFilter, partStatusFilter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -206,6 +233,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     const handleCategoryUpdate = () => {
+      loadCategories(true);
       loadProducts();
     };
 

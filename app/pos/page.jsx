@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import SalesInvoiceModal from '../../components/modules/pos/SalesInvoiceModal';
-import CustomSaleModal from '../../components/modules/pos/CustomSaleModal';
-import CustomerPurchaseModal from '../../components/modules/pos/CustomerPurchaseModal';
-import ExchangeModal from '../../components/modules/pos/ExchangeModal';
-import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
 import { POSProductGridSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
 import { formatProductTitle } from '../../utils/formatters';
+
+const SalesInvoiceModal = dynamic(() => import('../../components/modules/pos/SalesInvoiceModal'), { ssr: false });
+const CustomSaleModal = dynamic(() => import('../../components/modules/pos/CustomSaleModal'), { ssr: false });
+const CustomerPurchaseModal = dynamic(() => import('../../components/modules/pos/CustomerPurchaseModal'), { ssr: false });
+const ExchangeModal = dynamic(() => import('../../components/modules/pos/ExchangeModal'), { ssr: false });
+const InvoicePreviewModal = dynamic(() => import('../../components/modules/invoice/InvoicePreviewModal'), { ssr: false });
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -41,38 +43,51 @@ export default function PosPage() {
 
   const loadData = () => {
     setLoading(true);
-    Promise.all([
-      api.get('/products?inStockOnly=true'),
-      api.get('/categories'),
-      api.get('/pos/held-bills')
-    ]).then(([pRes, cRes, hRes]) => {
-      if (pRes.success) setProducts(pRes.data || []);
-        const prodCats = cRes.data.productCategories || [];
-        const mergedCats = Array.from(new Set(
-          prodCats.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean)
-        ));
-        setCategories(mergedCats);
-      if (hRes.success) setHeldBills(hRes.data || []);
-    }).catch(console.error)
+    api.get('/products?inStockOnly=true')
+      .then((pRes) => {
+        if (pRes.success) setProducts(pRes.data || []);
+      })
+      .catch(console.error)
       .finally(() => setLoading(false));
+
+    api.get('/categories')
+      .then((cRes) => {
+        if (cRes?.success && cRes.data) {
+          const prodCats = cRes.data.productCategories || [];
+          const mergedCats = Array.from(new Set(
+            prodCats.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean)
+          ));
+          setCategories(mergedCats);
+        }
+      })
+      .catch(console.error);
+
+    api.get('/pos/held-bills')
+      .then((hRes) => {
+        if (hRes?.success) setHeldBills(hRes.data || []);
+      })
+      .catch(console.error);
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = useMemo(() => {
     const s = search.trim().toLowerCase();
-    const pCat = (p.category || p.categoryName || '').toLowerCase();
-    const matchesSearch = !s ||
-      p.code?.toLowerCase().includes(s) ||
-      p.brand?.toLowerCase().includes(s) ||
-      p.model?.toLowerCase().includes(s) ||
-      p.productName?.toLowerCase().includes(s) ||
-      p.specifications?.toLowerCase().includes(s);
-    const matchesCategory = !categoryFilter || pCat === categoryFilter.toLowerCase();
-    return matchesSearch && matchesCategory;
-  });
+    const catLower = categoryFilter.toLowerCase();
+    return products.filter(p => {
+      const pCat = (p.category || p.categoryName || '').toLowerCase();
+      const matchesSearch = !s ||
+        p.code?.toLowerCase().includes(s) ||
+        p.brand?.toLowerCase().includes(s) ||
+        p.model?.toLowerCase().includes(s) ||
+        p.productName?.toLowerCase().includes(s) ||
+        p.specifications?.toLowerCase().includes(s);
+      const matchesCategory = !catLower || pCat === catLower;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, search, categoryFilter]);
 
   const handleProductCardClick = (prod) => {
     setSelectedProductForSale(prod);

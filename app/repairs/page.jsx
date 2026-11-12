@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
-import CreateRepairJobModal from '../../components/modules/repairs/CreateRepairJobModal';
-import AdminRepairJobModal from '../../components/modules/repairs/AdminRepairJobModal';
-import RepairPaymentModal from '../../components/modules/repairs/RepairPaymentModal';
-import RepairServiceModal from '../../components/modules/repairs/RepairServiceModal';
-import ManageRepairPartsModal from '../../components/modules/repairs/ManageRepairPartsModal';
-import InvoicePreviewModal from '../../components/modules/invoice/InvoicePreviewModal';
+
+const CreateRepairJobModal = dynamic(() => import('../../components/modules/repairs/CreateRepairJobModal'), { ssr: false });
+const AdminRepairJobModal = dynamic(() => import('../../components/modules/repairs/AdminRepairJobModal'), { ssr: false });
+const RepairPaymentModal = dynamic(() => import('../../components/modules/repairs/RepairPaymentModal'), { ssr: false });
+const RepairServiceModal = dynamic(() => import('../../components/modules/repairs/RepairServiceModal'), { ssr: false });
+const ManageRepairPartsModal = dynamic(() => import('../../components/modules/repairs/ManageRepairPartsModal'), { ssr: false });
+const InvoicePreviewModal = dynamic(() => import('../../components/modules/invoice/InvoicePreviewModal'), { ssr: false });
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 
 function money(v) {

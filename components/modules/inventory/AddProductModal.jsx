@@ -227,6 +227,7 @@ export default function AddProductModal({
         graphicsCard: formData.graphicsCard || null,
         accessoryCategory: formData.accessoryCategory || null,
         description: formData.description || null,
+        others: formData.others || null,
         customFields: formData.customFields || {},
         specifications: [
           formData.screenSize && `${formData.screenSize}`,

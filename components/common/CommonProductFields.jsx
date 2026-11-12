@@ -107,7 +107,14 @@ export default function CommonProductFields({
 
   let activeFields = [];
   if (definedCustomFields) {
-    activeFields = definedCustomFields;
+    activeFields = [...definedCustomFields];
+  }
+  if (values.customFields && typeof values.customFields === 'object') {
+    Object.keys(values.customFields).forEach((k) => {
+      if (k && !activeFields.some(f => f.toLowerCase().trim() === k.toLowerCase().trim())) {
+        activeFields.push(k);
+      }
+    });
   }
 
   const allCatNames = Array.from(new Set([
@@ -257,7 +264,7 @@ export default function CommonProductFields({
         <label>Others / Additional Specifications</label>
         <input
           className="input"
-          value={values.others || values.specifications || ''}
+          value={values.others ?? ''}
           onChange={(e) => handleChange('others', e.target.value)}
           placeholder="Any additional specifications"
         />

@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import api from '../../services/api';
 import Icon from '../../components/common/Icon';
 import Modal from '../../components/common/Modal';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
 import { useToast } from '../../components/common/Toast';
-import VendorGroupPaymentModal from '../../components/modules/accounts/VendorGroupPaymentModal';
+
+const VendorGroupPaymentModal = dynamic(() => import('../../components/modules/accounts/VendorGroupPaymentModal'), { ssr: false });
 
 function money(v) {
   const num = parseFloat(v || 0);
@@ -36,7 +38,7 @@ export default function VendorsPage() {
   const loadVendors = () => {
     setLoading(true);
     let url = '/vendors';
-    if (search) url += `?search=${encodeURIComponent(search)}`;
+    if (search && search.trim()) url += `?search=${encodeURIComponent(search.trim())}`;
     api.get(url)
       .then(res => {
         if (res.success) setVendors(res.data || []);
@@ -46,7 +48,10 @@ export default function VendorsPage() {
   };
 
   useEffect(() => {
-    loadVendors();
+    const timer = setTimeout(() => {
+      loadVendors();
+    }, 250);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const handleOpenAdd = () => {

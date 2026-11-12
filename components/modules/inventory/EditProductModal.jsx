@@ -78,6 +78,14 @@ export default function EditProductModal({
       setBalanceWarningModal({ isOpen: false, availableBalance: 0, requiredAmount: 0, paymentMethod: 'Cash' });
 
       if (product) {
+        const rawCustom = product.custom_fields || product.customFields;
+        let parsedCustom = {};
+        if (rawCustom && typeof rawCustom === 'object') {
+          parsedCustom = rawCustom;
+        } else if (typeof rawCustom === 'string') {
+          try { parsedCustom = JSON.parse(rawCustom) || {}; } catch (_) { parsedCustom = {}; }
+        }
+
         setFormData({
           category: product.category || product.categoryName || '',
           categoryName: product.category || product.categoryName || '',
@@ -89,12 +97,13 @@ export default function EditProductModal({
           costPrice: product.costPrice !== undefined ? String(product.costPrice) : '',
           expectedSalePrice: product.expectedSalePrice !== undefined ? String(product.expectedSalePrice) : '',
           remarks: product.remarks || '',
-          others: product.specifications || '',
+          others: product.others || '',
           vendorId: product.vendorId || product.sourceId || '',
           vendorName: product.vendorName || (product.sourceName !== 'Manual Entry' ? product.sourceName : '') || '',
           purchaseInvoiceNo: product.purchaseInvoiceNo || '',
           purchaseDate: product.purchaseDate ? String(product.purchaseDate).split('T')[0] : new Date().toISOString().split('T')[0],
-          customFields: product.custom_fields || product.customFields || {},
+          customFields: parsedCustom,
+          ...parsedCustom,
           screenSize: product.screen_size || product.screenSize || '',
           processor: product.processor || '',
           ram: product.ram || '',
@@ -105,10 +114,11 @@ export default function EditProductModal({
           description: product.description || ''
         });
 
-        setPaidInput('');
-        setIsManualPaid(false);
-        setPaymentMethod('Cash');
-        setReferenceId('');
+        const hasExistingPaid = product.vendorPaid !== undefined && product.vendorPaid !== null;
+        setPaidInput(hasExistingPaid ? String(product.vendorPaid) : '');
+        setIsManualPaid(hasExistingPaid);
+        setPaymentMethod(product.vendorPaymentMethod || 'Cash');
+        setReferenceId(product.vendorReferenceId || '');
       }
 
       return () => {
@@ -174,8 +184,9 @@ export default function EditProductModal({
 
   const selectedVendor = vendors.find(v => v.id === formData.vendorId || (formData.vendorName && v.name === formData.vendorName));
 
-  const numPaid = paidInput === '' ? totalCost : Math.max(0, parseFloat(paidInput) || 0);
+  const numPaid = paidInput === '' ? (isManualPaid ? 0 : totalCost) : Math.max(0, parseFloat(paidInput) || 0);
   const effectivePaid = Math.min(numPaid, totalCost);
+  const remainingBalance = Math.max(0, totalCost - effectivePaid);
 
   let paymentStatusType = 'unpaid';
   if (totalCost > 0) {
@@ -201,7 +212,13 @@ export default function EditProductModal({
         ? Object.values(formData.customFields).find(v => v && String(v).trim())
         : null;
       const effectiveBrand = formData.brand?.trim() || formData.customFields?.Brand || formData.customFields?.brand || formData.category || 'General';
-      const effectiveModel = formData.model?.trim() || formData.productName?.trim() || formData.customFields?.Model || formData.customFields?.['Model / Product Name'] || firstCustomVal || formData.category || 'Item';
+      const rawModel = formData.model?.trim() || formData.productName?.trim() || formData.customFields?.Model || formData.customFields?.['Model / Product Name'];
+      const oldBrandLower = (product?.brand || '').trim().toLowerCase();
+      const oldModelLower = (product?.model || '').trim().toLowerCase();
+      const wasModelAutoSynced = oldModelLower === oldBrandLower || (oldBrandLower && oldModelLower && (oldBrandLower.startsWith(oldModelLower) || oldModelLower.startsWith(oldBrandLower)));
+      const effectiveModel = (wasModelAutoSynced && (!rawModel || rawModel.toLowerCase() === oldModelLower))
+        ? effectiveBrand
+        : (rawModel || firstCustomVal || formData.category || 'Item');
 
       const payload = {
         category: formData.category || formData.categoryName,
@@ -216,6 +233,7 @@ export default function EditProductModal({
         graphicsCard: formData.graphicsCard || null,
         accessoryCategory: formData.accessoryCategory || null,
         description: formData.description || null,
+        others: formData.others || null,
         customFields: formData.customFields || {},
         specifications: [
           formData.screenSize && `${formData.screenSize}`,
